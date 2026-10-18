@@ -24,7 +24,16 @@ Same setup as Student360.
 - [x] Extraction worker (`worker/`): reads each PDF page by page, OCR fallback for scanned pages
 - [x] Live processing status (waiting / reading / read / failed), retry, page-text viewer with search
 - [x] Edit tender details (reference, issuer, closing, briefing, status); delete files or the whole tender
-- [ ] Week 3: AI extraction of the must-have fields, with page references
+
+### Week 3: AI extraction (engine and gate, in progress)
+- [x] Fixed JSON schema for all fields in the scope doc; every value has file, page, quote and confidence
+- [x] Provider switch: Anthropic, OpenAI or Gemini via `LLM_PROVIDER` in `worker/.env`
+- [x] Verifier: every quote is checked against the real page text; wrong pages are corrected,
+      quotes that don't exist are marked unverified and low confidence
+- [x] Answer key for RFQ 906 and 907 (`test-set/answer-key/`), drafted and quote-checked; awaiting Ruboi's review
+- [x] `evaluate.py` scores a run against the answer key using the scope doc's pass bar
+- [ ] Run the gate with a real model and pass it
+- [ ] Then: worker runs extraction after a tender's PDFs are read, results saved for the week 4 review screen
 
 ## Set up
 
@@ -61,6 +70,29 @@ Without it, text PDFs still work; scanned pages are skipped and the file shows a
 
 **Hosting later:** `worker/Dockerfile` includes Tesseract. Deploy it as a background worker on
 Render or Fly.io with `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` as secrets.
+
+## AI extraction and the week 3 gate
+
+1. Get an API key from one provider and set `LLM_PROVIDER` + its key in `worker\.env`.
+2. Check `test-set/answer-key/REVIEW.md` against the PDFs (fix any row in `make_keys.py`, run it again).
+3. Run the gate:
+   ```powershell
+   cd worker
+   .venv\Scripts\activate
+   pip install -r requirements.txt
+   python evaluate.py
+   ```
+   It prints every field as OK / LOW (wrong but flagged) / XX (wrong) / MISS, lists extra documents
+   the AI found, and ends with `GATE: PASS` or `GATE: FAIL`. Outputs are saved under `test-set/results/`.
+4. Try one tender on its own: `python ai_extract.py ..\test-set\RFQ_906_2026.pdf`
+
+**Pass bar:** closing date and every core mandatory document correct or flagged low confidence (none
+wrong at medium/high, none missed); all other fields 90%+ correct.
+
+**Tests (no API key needed):** `python tests/test_pipeline.py` plays simulated answers through the
+pipeline and checks that an invented closing time, a missed form and a fake quote all fail the gate.
+
+Cost guide: about 9k input and 3k output tokens per 10-page RFQ.
 
 ## Deploy (Vercel)
 

@@ -7,3 +7,4 @@ worker/.env
 worker/.venv
 __pycache__
 *.pyc
+test-set/results/

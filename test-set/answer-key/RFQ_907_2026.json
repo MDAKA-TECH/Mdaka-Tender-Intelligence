@@ -1,0 +1,350 @@
+{
+  "file": "RFQ_907_2026.pdf",
+  "fields": {
+    "reference_no": {
+      "value": "RFQ 907/2026",
+      "pages": [
+        1
+      ],
+      "quote": "Quotation Reference Number: RFQ 907/2026",
+      "must": true
+    },
+    "issuing_entity": {
+      "contains_any": [
+        "parliament"
+      ],
+      "pages": [
+        1,
+        2,
+        4,
+        3,
+        8,
+        9
+      ],
+      "value": "Parliament of the Republic of South Africa",
+      "quote": "Parliament of the Republic of South Africa seeks to appoint",
+      "must": true
+    },
+    "description": {
+      "contains_any": [
+        "data engineer"
+      ],
+      "pages": [
+        1,
+        4
+      ],
+      "value": "Data Engineer services",
+      "quote": "Product/Service Requested: DATA ENGINEER SERVICES",
+      "must": true
+    },
+    "closing": {
+      "value": {
+        "date": "2026-10-12",
+        "time": null
+      },
+      "pages": [
+        1
+      ],
+      "quote": "Closing Date: 12/10/2026",
+      "note": "No closing time is printed. The time must come back null.",
+      "must": true,
+      "critical": true
+    },
+    "submission": {
+      "value": {
+        "method": "email",
+        "address": "avokwana@parliament.gov.za"
+      },
+      "pages": [
+        2
+      ],
+      "quote": "The quotation must be emailed to avokwana@parliament.gov.za",
+      "must": true
+    },
+    "briefing": {
+      "expect": "not_found",
+      "note": "No briefing session is mentioned.",
+      "must": true
+    },
+    "evaluation": {
+      "value": {
+        "preference_system": "80/20",
+        "functionality_threshold": null
+      },
+      "pages": [
+        1
+      ],
+      "quote": "Quotations will be evaluated on 80 /20 preference point system."
+    },
+    "validity_days": {
+      "expect": "not_found",
+      "note": "No bid validity period is stated."
+    },
+    "contact": {
+      "value": {
+        "email": "avokwana@parliament.gov.za"
+      },
+      "pages": [
+        2,
+        1
+      ],
+      "quote": "Further information regarding this quote may be obtained from to avokwana@parliament.gov.za"
+    },
+    "query_deadline": {
+      "expect": "not_found",
+      "note": "No closing date for questions is stated."
+    },
+    "pricing_format": {
+      "contains_any": [
+        "hour",
+        "vat"
+      ],
+      "pages": [
+        1,
+        4,
+        7
+      ],
+      "value": "Hourly rate, VAT inclusive, in South African currency",
+      "quote": "must clearly indicate the hourly rate applicable to the services"
+    }
+  },
+  "returnables": [
+    {
+      "id": "goals_docs",
+      "name": "Supporting documents for the specific goals claimed (ID / CSD / CK, medical certificate, turnover confirmation)",
+      "match": [
+        "specific goal",
+        "preference",
+        "\\bhdi\\b",
+        "\\brdp\\b",
+        "supporting doc",
+        "\\bck\\b",
+        "medical",
+        "turnover"
+      ],
+      "maps_to": null,
+      "mandatory": null,
+      "core": true,
+      "pages": [
+        1,
+        2
+      ],
+      "quote": "All suppliers must submit valid tax pin and all supporting documents as per the specific goals table.",
+      "note": "Only needed to claim preference points, so mandatory can be either."
+    },
+    {
+      "id": "declaration",
+      "name": "Declaration of interest form, signed and stamped by a Commissioner of Oaths",
+      "match": [
+        "declaration of interest",
+        "sbd ?4",
+        "bidder.?s disclosure",
+        "commissioner of oaths"
+      ],
+      "maps_to": null,
+      "mandatory": true,
+      "core": true,
+      "pages": [
+        2,
+        8,
+        9
+      ],
+      "quote": "the declaration of interest form must be filled in, signed, stamped by a Commissioner of Oaths"
+    },
+    {
+      "id": "tax",
+      "name": "Valid tax compliance status PIN",
+      "match": [
+        "tax"
+      ],
+      "maps_to": "tax_compliance",
+      "mandatory": true,
+      "core": true,
+      "pages": [
+        2,
+        3
+      ],
+      "quote": "All suppliers must submit valid tax pin"
+    },
+    {
+      "id": "csd",
+      "name": "Registration on the Central Supplier Database (CSD)",
+      "match": [
+        "\\bcsd\\b",
+        "central supplier"
+      ],
+      "maps_to": "csd_report",
+      "mandatory": null,
+      "core": true,
+      "pages": [
+        2,
+        3
+      ],
+      "quote": "All suppliers responding to quotation should be registered on Central Supplier Database (CSD)",
+      "note": "Says 'should be registered', so mandatory can be either."
+    },
+    {
+      "id": "bank",
+      "name": "Bank confirmation letter or cancelled cheque",
+      "match": [
+        "bank",
+        "cheque"
+      ],
+      "maps_to": "bank_letter",
+      "mandatory": null,
+      "core": true,
+      "pages": [
+        3
+      ],
+      "quote": "Attach a bank confirmation letter or cancelled cheque to confirm bank account number"
+    },
+    {
+      "id": "pricing",
+      "name": "Priced quotation / pricing schedule with hourly rate (VAT inclusive)",
+      "match": [
+        "pric",
+        "quot",
+        "hourly",
+        "rate"
+      ],
+      "maps_to": null,
+      "mandatory": true,
+      "core": true,
+      "pages": [
+        1,
+        2,
+        4,
+        7
+      ],
+      "quote": "The quotation submitted by the service provider must clearly indicate the hourly rate"
+    },
+    {
+      "id": "rfq_doc",
+      "name": "RFQ document completed in full (including the supplier information form)",
+      "match": [
+        "rfq document",
+        "supplier information",
+        "completed in full",
+        "rfq form"
+      ],
+      "maps_to": null,
+      "mandatory": true,
+      "core": true,
+      "pages": [
+        2,
+        3
+      ],
+      "quote": "The RFQ document must be completed in full"
+    },
+    {
+      "id": "references",
+      "name": "Current list of references for similar work",
+      "match": [
+        "reference"
+      ],
+      "maps_to": null,
+      "mandatory": null,
+      "core": true,
+      "pages": [
+        2
+      ],
+      "quote": "A current list of references where similar work was undertaken should be supplied."
+    },
+    {
+      "id": "letterhead",
+      "name": "Quote on company letterhead showing the VAT registration number",
+      "match": [
+        "letterhead",
+        "\\bvat\\b"
+      ],
+      "maps_to": null,
+      "mandatory": null,
+      "core": false,
+      "pages": [
+        2
+      ],
+      "quote": "Quotes should be on the company letterhead, indicating the VAT registration number."
+    },
+    {
+      "id": "experience",
+      "name": "Background and experience form (two largest contracts)",
+      "match": [
+        "background",
+        "experience",
+        "contracts"
+      ],
+      "maps_to": null,
+      "mandatory": null,
+      "core": false,
+      "pages": [
+        7
+      ],
+      "quote": "LIST THE TWO LARGEST CONTRACTS / ASSIGNMENTS BY YOUR FIRM"
+    },
+    {
+      "id": "cvs",
+      "name": "Evidence of the resource's qualifications and experience (CV, certificates)",
+      "match": [
+        "\\bcv",
+        "qualification",
+        "curriculum"
+      ],
+      "maps_to": null,
+      "mandatory": null,
+      "core": false,
+      "pages": [
+        6
+      ],
+      "quote": "Demonstrated experience delivering data engineering solutions in Azure-based environments."
+    }
+  ],
+  "disqualifiers": [
+    {
+      "id": "missing_docs",
+      "name": "Not submitting all required documents",
+      "match": [
+        "(fail|not).*(submit|document)",
+        "missing",
+        "all documents"
+      ],
+      "core": true,
+      "pages": [
+        2
+      ],
+      "quote": "Failure to submit all documents as required might result in disqualification."
+    },
+    {
+      "id": "late",
+      "name": "Quotation received after the closing date",
+      "match": [
+        "late",
+        "after the closing",
+        "closing date"
+      ],
+      "core": true,
+      "pages": [
+        2
+      ],
+      "quote": "All quotations received after the closing date will not be accepted."
+    },
+    {
+      "id": "conflict",
+      "name": "Bidder (or its directors) is an MP, Cabinet member, councillor or state employee",
+      "match": [
+        "member of parliament",
+        "\\bmp",
+        "councillor",
+        "state",
+        "conflict"
+      ],
+      "core": false,
+      "pages": [
+        2,
+        8,
+        9
+      ],
+      "quote": "Parliament cannot award contracts to provide goods and services to a Member of Parliament"
+    }
+  ],
+  "special_requirements_note": "Expected (not scored): Bachelor's degree and three to five years or more data engineering experience; 12-month enabling contract, ad-hoc basis."
+}

@@ -1,0 +1,168 @@
+"""Check the model's answer against the actual page text before anyone relies on it.
+
+1. Validate against the JSON schema (anything malformed is rejected).
+2. Every quote must really appear on the page it cites. If it's on a different page the page
+   is corrected; if it can't be found anywhere the value is marked unverified and low confidence.
+3. Basic sanity checks (real dates, consistent not_found fields).
+The result keeps the model's values but adds `verified` and `notes` to every field and item.
+"""
+from __future__ import annotations
+
+import copy
+import re
+from datetime import date
+from difflib import SequenceMatcher
+
+from jsonschema import Draft202012Validator
+
+from fields import SCHEMA
+
+LIST_KEYS = ("returnables", "disqualifiers", "special_requirements")
+FIELD_KEYS = [k for k in SCHEMA["properties"] if k not in LIST_KEYS]
+FUZZY_MIN = 0.85   # share of the quote that must match one stretch of the page text
+_validator = Draft202012Validator(SCHEMA)
+
+
+def schema_errors(data: dict) -> list[str]:
+    return [f"{'/'.join(map(str, e.path)) or '(root)'}: {e.message}" for e in _validator.iter_errors(data)][:20]
+
+
+_TRANS = str.maketrans({"’": "'", "‘": "'", "“": '"', "”": '"', "–": "-", "—": "-", " ": " "})
+
+
+def norm(s: str) -> str:
+    s = s.translate(_TRANS).lower()
+    return re.sub(r"[^a-z0-9@./%]+", " ", s).strip()
+
+
+def quote_score(quote: str, page_text: str) -> float:
+    """1.0 if every part of the quote appears in the page, else the best partial match ratio."""
+    parts = [norm(p) for p in re.split(r"\.\.\.|…", quote) if norm(p)]
+    if not parts:
+        return 0.0
+    page = norm(page_text)
+    scores = []
+    for q in parts:
+        if q in page:
+            scores.append(1.0)
+            continue
+        m = SequenceMatcher(None, page, q, autojunk=False).find_longest_match(0, len(page), 0, len(q))
+        scores.append(m.size / len(q))
+    return min(scores)
+
+
+def _locate(quote: str, files: list[dict], file_no: int | None, page_no: int | None) -> tuple[int | None, int | None, float]:
+    """Find where a quote really is. Returns (file, page, score), preferring the cited page."""
+    def page_text(f: int, p: int) -> str | None:
+        if 1 <= f <= len(files):
+            for pg in files[f - 1]["pages"]:
+                if pg["page"] == p:
+                    return pg["text"]
+        return None
+
+    if file_no and page_no:
+        t = page_text(file_no, page_no)
+        if t is not None:
+            s = quote_score(quote, t)
+            if s >= FUZZY_MIN:
+                return file_no, page_no, s
+    best = (None, None, 0.0)
+    for fi, f in enumerate(files, start=1):
+        for pg in f["pages"]:
+            s = quote_score(quote, pg["text"])
+            if s > best[2]:
+                best = (fi, pg["page"], s)
+    return best
+
+
+def _cap(conf: str | None, cap: str) -> str:
+    order = ["low", "medium", "high"]
+    if conf not in order:
+        return cap
+    return order[min(order.index(conf), order.index(cap))]
+
+
+def _check_source(obj: dict, files: list[dict]) -> None:
+    notes: list[str] = []
+    quote = (obj.get("quote") or "").strip()
+    if not quote:
+        obj["verified"] = False
+        obj["confidence"] = "low"
+        notes.append("No quote given.")
+    else:
+        f, p, s = _locate(quote, files, obj.get("file"), obj.get("page"))
+        if s >= FUZZY_MIN:
+            obj["verified"] = True
+            if (f, p) != (obj.get("file"), obj.get("page")):
+                notes.append(f"Page corrected from {obj.get('file')}:{obj.get('page')} to {f}:{p}.")
+                obj["file"], obj["page"] = f, p
+                obj["confidence"] = _cap(obj.get("confidence"), "medium")
+        else:
+            obj["verified"] = False
+            obj["confidence"] = "low"
+            notes.append("Quote not found in the document. Check this by hand.")
+    obj["notes"] = notes
+
+
+def _valid_iso(d: str | None) -> bool:
+    if not d:
+        return False
+    try:
+        date.fromisoformat(d)
+        return True
+    except ValueError:
+        return False
+
+
+def check(data: dict, files: list[dict]) -> dict:
+    """Returns a verified copy. Raises ValueError if the output doesn't match the schema."""
+    errs = schema_errors(data)
+    if errs:
+        raise ValueError("Model output did not match the schema: " + "; ".join(errs[:5]))
+    out = copy.deepcopy(data)
+
+    for k in FIELD_KEYS:
+        fld = out[k]
+        if fld["status"] == "not_found":
+            fld.update(value=None, file=None, page=None, quote=None, confidence=None, verified=None, notes=[])
+            continue
+        if fld["value"] is None:
+            fld.update(status="not_found", file=None, page=None, quote=None, confidence=None, verified=None,
+                       notes=["Marked found but had no value."])
+            continue
+        _check_source(fld, files)
+
+    # Sanity checks on values the checklist and reminders depend on.
+    c = out["closing"]
+    if c["status"] == "found":
+        if not _valid_iso(c["value"].get("date")):
+            c["confidence"] = "low"
+            c["notes"].append("Closing date is not a valid date.")
+        t = c["value"].get("time")
+        if t and not re.fullmatch(r"([01]\d|2[0-3]):[0-5]\d", t):
+            c["confidence"] = "low"
+            c["notes"].append("Closing time is not a valid HH:MM time.")
+    b = out["briefing"]
+    if b["status"] == "found" and b["value"].get("date") and not _valid_iso(b["value"]["date"]):
+        b["confidence"] = "low"
+        b["notes"].append("Briefing date is not a valid date.")
+
+    for k in LIST_KEYS:
+        for it in out[k]:
+            _check_source(it, files)
+    return out
+
+
+def summary(checked: dict) -> dict:
+    """Counts for logs and the UI."""
+    fields = [checked[k] for k in FIELD_KEYS if checked[k]["status"] == "found"]
+    items = [it for k in LIST_KEYS for it in checked[k]]
+    allv = fields + items
+    return {
+        "fields_found": len(fields),
+        "fields_not_found": len(FIELD_KEYS) - len(fields),
+        "returnables": len(checked["returnables"]),
+        "mandatory_returnables": sum(1 for r in checked["returnables"] if r["mandatory"]),
+        "unverified": sum(1 for v in allv if v.get("verified") is False),
+        "low_confidence": sum(1 for v in allv if v.get("confidence") == "low"),
+    }
