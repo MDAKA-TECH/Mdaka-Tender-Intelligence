@@ -56,3 +56,49 @@ export const DOC_TYPES: DocTypeInfo[] = [
 ];
 
 export const docTypeInfo = (t: DocType) => DOC_TYPES.find((d) => d.type === t)!;
+
+// ---------------------------------------------------------------- tenders (week 2)
+export type TenderStatus = 'reviewing' | 'preparing' | 'submitted' | 'won' | 'lost' | 'not_bidding';
+export type ExtractionStatus = 'queued' | 'extracting' | 'done' | 'failed';
+
+export const TENDER_STATUS_LABEL: Record<TenderStatus, string> = {
+  reviewing: 'Reviewing',
+  preparing: 'Preparing',
+  submitted: 'Submitted',
+  won: 'Won',
+  lost: 'Lost',
+  not_bidding: 'Not bidding',
+};
+
+export interface Tender {
+  id: string;
+  reference_no: string | null;
+  entity: string | null;
+  description: string | null;
+  closing_at: string | null;
+  briefing_at: string | null;
+  briefing_compulsory: boolean | null;
+  status: TenderStatus;
+  created_at: string;
+}
+
+export interface TenderFile {
+  id: string;
+  tender_id: string;
+  file_path: string;
+  file_name: string;
+  file_size: number | null;
+  status: ExtractionStatus;
+  error: string | null;
+  page_count: number | null;
+  ocr_used: boolean;
+  ocr_pages: number[];
+  extracted_at: string | null;
+  created_at: string;
+}
+
+export interface PageText {
+  page: number;
+  text: string;
+  ocr?: boolean;
+}

@@ -7,11 +7,14 @@ import Login from './pages/Login';
 import Onboarding from './pages/Onboarding';
 import Vault from './pages/Vault';
 import CompanyPage from './pages/Company';
+import Tenders from './pages/Tenders';
+import TenderDetail from './pages/TenderDetail';
 
-type Page = 'vault' | 'company';
+type Route = { page: 'tenders' } | { page: 'tender'; id: string } | { page: 'vault' } | { page: 'company' };
+type Page = Route['page'];
 
-const NAV: { page: Page | null; label: string; soon?: string }[] = [
-  { page: null, label: 'Tenders', soon: 'Week 2' },
+const NAV: { page: Page; label: string }[] = [
+  { page: 'tenders', label: 'Tenders' },
   { page: 'vault', label: 'Document vault' },
   { page: 'company', label: 'Company profile' },
 ];
@@ -59,7 +62,12 @@ function Centered({ children }: { children: ReactNode }) {
 
 function Shell({ user, company }: { user: AppUser; company: Company }) {
   const { signOut } = useAuth();
-  const [page, setPage] = useState<Page>('vault');
+  const [route, setRoute] = useState<Route>({ page: 'tenders' });
+  const go = (r: Route) => {
+    setRoute(r);
+    document.querySelector('.main')?.scrollTo(0, 0);
+  };
+  const active: Page = route.page === 'tender' ? 'tenders' : route.page;
   const [toastMsg, setToastMsg] = useState<string | null>(null);
 
   const toast = useMemo(
@@ -83,14 +91,8 @@ function Shell({ user, company }: { user: AppUser; company: Company }) {
           </div>
           <nav className="nav" aria-label="Main">
             {NAV.map((n) => (
-              <button
-                key={n.label}
-                disabled={!n.page}
-                aria-current={n.page === page ? 'page' : undefined}
-                onClick={() => n.page && setPage(n.page)}
-              >
+              <button key={n.label} aria-current={n.page === active ? 'page' : undefined} onClick={() => go({ page: n.page } as Route)}>
                 {n.label}
-                {n.soon && <span className="soon">{n.soon}</span>}
               </button>
             ))}
           </nav>
@@ -104,7 +106,17 @@ function Shell({ user, company }: { user: AppUser; company: Company }) {
             </button>
           </div>
         </aside>
-        <main className="main">{page === 'vault' ? <Vault company={company} /> : <CompanyPage company={company} user={user} />}</main>
+        <main className="main">
+          {route.page === 'tenders' ? (
+            <Tenders company={company} onOpen={(id) => go({ page: 'tender', id })} />
+          ) : route.page === 'tender' ? (
+            <TenderDetail id={route.id} key={route.id} company={company} onBack={() => go({ page: 'tenders' })} />
+          ) : route.page === 'vault' ? (
+            <Vault company={company} />
+          ) : (
+            <CompanyPage company={company} user={user} />
+          )}
+        </main>
       </div>
       {toastMsg && (
         <div className="toast" role="status">
