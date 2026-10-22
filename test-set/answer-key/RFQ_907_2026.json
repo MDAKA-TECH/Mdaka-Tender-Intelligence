@@ -204,9 +204,9 @@
       "name": "Priced quotation / pricing schedule with hourly rate (VAT inclusive)",
       "match": [
         "pric",
-        "quot",
         "hourly",
-        "rate"
+        "\\brate\\b",
+        "cost"
       ],
       "maps_to": null,
       "mandatory": true,

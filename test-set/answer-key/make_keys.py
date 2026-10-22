@@ -71,7 +71,7 @@ def key(n: str) -> dict:
              "match": [r"bank", r"cheque"], "maps_to": "bank_letter", "mandatory": None, "core": True, "pages": p["supplier"],
              "quote": "Attach a bank confirmation letter or cancelled cheque to confirm bank account number"},
             {"id": "pricing", "name": "Priced quotation / pricing schedule with hourly rate (VAT inclusive)",
-             "match": [r"pric", r"quot", r"hourly", r"rate"], "maps_to": None, "mandatory": True, "core": True,
+             "match": [r"pric", r"hourly", r"\brate\b", r"cost"], "maps_to": None, "mandatory": True, "core": True,
              "pages": [p["cover"], *p["cond"], *p["tor"], *p["pricing"]],
              "quote": "The quotation submitted by the service provider must clearly indicate the hourly rate"},
             {"id": "rfq_doc", "name": "RFQ document completed in full (including the supplier information form)",
