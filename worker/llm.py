@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import json
 import os
+import sys
 import time
 from dataclasses import dataclass
 
@@ -19,10 +20,11 @@ from fields import SCHEMA, SYSTEM_PROMPT
 DEFAULT_MODELS = {
     "anthropic": "claude-sonnet-4-5",
     "openai": "gpt-4.1-mini",
-    "gemini": "gemini-2.5-flash",
+    "gemini": "gemini-3-flash-preview",
 }
 TIMEOUT = httpx.Timeout(180.0, connect=15.0)
-MAX_OUTPUT_TOKENS = 8000
+# Generous: "thinking" models count their reasoning against this limit too.
+MAX_OUTPUT_TOKENS = int(os.getenv("LLM_MAX_OUTPUT_TOKENS", "32000"))
 
 
 @dataclass
@@ -46,12 +48,25 @@ def _key(name: str) -> str:
     return v
 
 
+class Overloaded(LLMError):
+    """The provider is temporarily overloaded (HTTP 503/529). Worth retrying later or on another model."""
+
+
 def _post(url: str, headers: dict, body: dict) -> dict:
-    for attempt in range(3):
+    waits = [10, 30, 60]  # overload spikes on preview/free models usually clear within a minute or two
+    for attempt in range(len(waits) + 1):
         r = httpx.post(url, headers=headers, json=body, timeout=TIMEOUT)
-        if r.status_code in (429, 500, 502, 503, 529) and attempt < 2:
-            time.sleep(5 * (attempt + 1))
+        if r.status_code in (429, 500, 502, 503, 529) and attempt < len(waits):
+            # Honour Retry-After when the provider sends it.
+            ra = r.headers.get("retry-after")
+            wait = float(ra) if ra and ra.replace(".", "", 1).isdigit() else waits[attempt]
+            print(f"  model API busy ({r.status_code}), retrying in {wait:.0f}s…", file=sys.stderr)
+            time.sleep(wait)
             continue
+        if r.status_code == 429:
+            raise LLMError("Rate limit reached (free tier allows only a few requests per minute/day). Try again later.")
+        if r.status_code in (503, 529):
+            raise Overloaded(f"{r.status_code}: the model is overloaded right now. Try again later or set LLM_FALLBACK_MODEL.")
         if r.status_code >= 400:
             raise LLMError(f"{r.status_code} from model API: {r.text[:400]}")
         return r.json()
@@ -97,19 +112,44 @@ def _openai(model: str, user: str) -> tuple[dict, int | None, int | None]:
 def _gemini(model: str, user: str) -> tuple[dict, int | None, int | None]:
     # Gemini's responseSchema dialect differs from JSON Schema, so the schema goes in the prompt
     # and the reply is validated by our own validator afterwards.
+    config = {"temperature": 0, "responseMimeType": "application/json", "maxOutputTokens": MAX_OUTPUT_TOKENS,
+              # Extraction needs little reasoning; low thinking leaves the token budget for the answer.
+              "thinkingConfig": {"thinkingLevel": os.getenv("GEMINI_THINKING_LEVEL", "low")}}
     body = {
         "systemInstruction": {"parts": [{"text": SYSTEM_PROMPT}]},
         "contents": [{"role": "user", "parts": [{"text": user + "\n\nReturn ONLY JSON matching this JSON Schema:\n" + json.dumps(SCHEMA)}]}],
-        "generationConfig": {"temperature": 0, "responseMimeType": "application/json", "maxOutputTokens": MAX_OUTPUT_TOKENS},
+        "generationConfig": config,
     }
     url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent"
-    res = _post(url, {"x-goog-api-key": _key("GEMINI_API_KEY")}, body)
+    headers = {"x-goog-api-key": _key("GEMINI_API_KEY")}
     try:
-        text = res["candidates"][0]["content"]["parts"][0]["text"]
+        res = _post(url, headers, body)
+    except LLMError as e:
+        if "thinking" not in str(e).lower():
+            raise
+        config.pop("thinkingConfig")  # older models don't accept thinkingLevel
+        res = _post(url, headers, body)
+
+    try:
+        cand = res["candidates"][0]
+        # A long answer can arrive in several parts; skip any "thought" parts.
+        text = "".join(p.get("text", "") for p in cand["content"]["parts"] if not p.get("thought"))
     except (KeyError, IndexError) as e:
         raise LLMError(f"Unexpected Gemini reply: {str(res)[:300]}") from e
+    reason = cand.get("finishReason")
+    if reason == "MAX_TOKENS":
+        raise LLMError("Gemini ran out of output tokens before finishing. Raise LLM_MAX_OUTPUT_TOKENS in worker/.env.")
+    if reason not in (None, "STOP"):
+        raise LLMError(f"Gemini stopped early (finishReason={reason}).")
     u = res.get("usageMetadata", {})
-    return json.loads(text), u.get("promptTokenCount"), u.get("candidatesTokenCount")
+    text = text.strip()
+    if text.startswith("```"):  # occasionally wrapped in a ```json fence
+        text = text.split("\n", 1)[1].rsplit("```", 1)[0]
+    try:
+        data = json.loads(text)
+    except json.JSONDecodeError as e:
+        raise LLMError(f"Gemini returned invalid JSON ({e.msg} at char {e.pos} of {len(text)}).") from e
+    return data, u.get("promptTokenCount"), u.get("candidatesTokenCount")
 
 
 def _fixture(_model: str, _user: str) -> tuple[dict, None, None]:
@@ -133,5 +173,14 @@ def provider_and_model() -> tuple[str, str]:
 def call(user_prompt: str) -> LLMResult:
     provider, model = provider_and_model()
     t = time.monotonic()
-    data, i, o = PROVIDERS[provider](model, user_prompt)
+    try:
+        data, i, o = PROVIDERS[provider](model, user_prompt)
+    except Overloaded:
+        # Optional second model from the same provider, e.g. a Flash-Lite model when Flash is busy.
+        fallback = os.getenv("LLM_FALLBACK_MODEL")
+        if not fallback or fallback == model:
+            raise
+        print(f"  {model} overloaded, using fallback {fallback}", file=sys.stderr)
+        model = fallback
+        data, i, o = PROVIDERS[provider](model, user_prompt)
     return LLMResult(data=data, provider=provider, model=model, input_tokens=i, output_tokens=o, seconds=time.monotonic() - t)

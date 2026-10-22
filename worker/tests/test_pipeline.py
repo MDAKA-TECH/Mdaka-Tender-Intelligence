@@ -145,6 +145,11 @@ def test_quote_matching_tolerates_layout():
     page = "▪  The quotation must be emailed to\n   avokwana@parliament.gov.za"
     assert verify.quote_score("The quotation must be emailed to avokwana@parliament.gov.za", page) == 1.0
     assert verify.quote_score("Bids must remain valid for 90 days", page) < verify.FUZZY_MIN
+    # Table cells come out interleaved with neighbouring columns.
+    table = "4. Tenderers must supply the following documents\nBlack 6 Identity Document/ CSD/CK document\nwhen claiming preference points"
+    assert verify.quote_score("Tenderers must supply the following documents when claiming preference points", table) >= verify.FUZZY_MIN
+    # Words run together by the model or the PDF.
+    assert verify.quote_score("indicating the VATregistration number of the supplier", "indicating the VAT registration number of the supplier") >= verify.FUZZY_MIN
 
 
 if __name__ == "__main__":

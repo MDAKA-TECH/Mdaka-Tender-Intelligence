@@ -44,7 +44,7 @@ def key(n: str) -> dict:
             "contact": {"value": {"email": "avokwana@parliament.gov.za"}, "pages": [*p["cond"], p["cover"]],
                         "quote": "Further information regarding this quote may be obtained from to avokwana@parliament.gov.za"},
             "query_deadline": {"expect": "not_found", "note": "No closing date for questions is stated."},
-            "pricing_format": {"contains_any": ["hour", "vat"], "pages": [p["cover"], *p["tor"], *p["pricing"]],
+            "pricing_format": {"contains_any": ["hour", "vat"], "pages": [p["cover"], *p["cond"], *p["tor"], *p["pricing"]],
                                "value": "Hourly rate, VAT inclusive, in South African currency",
                                "quote": "must clearly indicate the hourly rate applicable to the services"},
         },

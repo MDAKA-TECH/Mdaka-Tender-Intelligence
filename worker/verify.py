@@ -35,16 +35,49 @@ def norm(s: str) -> str:
     return re.sub(r"[^a-z0-9@./%]+", " ", s).strip()
 
 
+TABLE_MATCH = 0.9   # score given to a quote whose words appear in order but interleaved (table layout)
+
+
+def _in_order(words: list[str], page_words: list[str]) -> bool:
+    """True if `words` appear in order in page_words, with other words allowed in between but
+    within a window of 4x the quote length. Tables come out of PDFs with their columns
+    interleaved, so a sentence from one cell is split up by text from the next cells."""
+    n = len(words)
+    if n < 4:
+        return False  # too short to tell apart from coincidence
+    window = n * 4
+    for start, w in enumerate(page_words):
+        if w != words[0]:
+            continue
+        i, j = 1, start + 1
+        while i < n and j < len(page_words) and j - start < window:
+            if page_words[j] == words[i]:
+                i += 1
+            j += 1
+        if i == n:
+            return True
+    return False
+
+
 def quote_score(quote: str, page_text: str) -> float:
-    """1.0 if every part of the quote appears in the page, else the best partial match ratio."""
+    """1.0 if every part of the quote appears verbatim, TABLE_MATCH if it appears in order across a
+    table layout, else the best partial match ratio."""
     parts = [norm(p) for p in re.split(r"\.\.\.|…", quote) if norm(p)]
     if not parts:
         return 0.0
     page = norm(page_text)
+    page_words = page.split()
+    page_nospace = page.replace(" ", "")
     scores = []
     for q in parts:
         if q in page:
             scores.append(1.0)
+            continue
+        if len(q) >= 20 and q.replace(" ", "") in page_nospace:  # words run together or split ("VATregistration")
+            scores.append(0.95)
+            continue
+        if _in_order(q.split(), page_words):
+            scores.append(TABLE_MATCH)
             continue
         m = SequenceMatcher(None, page, q, autojunk=False).find_longest_match(0, len(page), 0, len(q))
         scores.append(m.size / len(q))
@@ -93,6 +126,8 @@ def _check_source(obj: dict, files: list[dict]) -> None:
         f, p, s = _locate(quote, files, obj.get("file"), obj.get("page"))
         if s >= FUZZY_MIN:
             obj["verified"] = True
+            if s < 1.0:
+                notes.append("Quote matched across a table or broken layout.")
             if (f, p) != (obj.get("file"), obj.get("page")):
                 notes.append(f"Page corrected from {obj.get('file')}:{obj.get('page')} to {f}:{p}.")
                 obj["file"], obj["page"] = f, p

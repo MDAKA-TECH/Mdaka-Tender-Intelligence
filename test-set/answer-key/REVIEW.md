@@ -16,7 +16,7 @@ Tick each row once you've confirmed it in the PDF. Fix anything wrong in `make_k
 | [ ] | validity_days | NOT FOUND <br>_No bid validity period is stated._ | - | - |
 | [ ] | contact | {"email": "avokwana@parliament.gov.za"} | 2, 1 | Further information regarding this quote may be obtained from to avokwana@parliament.gov.za |
 | [ ] | query_deadline | NOT FOUND <br>_No closing date for questions is stated._ | - | - |
-| [ ] | pricing_format | "Hourly rate, VAT inclusive, in South African currency" | 1, 5, 8 | must clearly indicate the hourly rate applicable to the services |
+| [ ] | pricing_format | "Hourly rate, VAT inclusive, in South African currency" | 1, 2, 5, 8 | must clearly indicate the hourly rate applicable to the services |
 
 **Documents to submit**
 
@@ -58,7 +58,7 @@ _Expected (not scored): NQF Level 7 qualification and at least five years' data 
 | [ ] | validity_days | NOT FOUND <br>_No bid validity period is stated._ | - | - |
 | [ ] | contact | {"email": "avokwana@parliament.gov.za"} | 2, 1 | Further information regarding this quote may be obtained from to avokwana@parliament.gov.za |
 | [ ] | query_deadline | NOT FOUND <br>_No closing date for questions is stated._ | - | - |
-| [ ] | pricing_format | "Hourly rate, VAT inclusive, in South African currency" | 1, 4, 7 | must clearly indicate the hourly rate applicable to the services |
+| [ ] | pricing_format | "Hourly rate, VAT inclusive, in South African currency" | 1, 2, 4, 7 | must clearly indicate the hourly rate applicable to the services |
 
 **Documents to submit**
 

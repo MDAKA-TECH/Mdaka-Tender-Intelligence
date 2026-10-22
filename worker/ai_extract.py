@@ -14,13 +14,26 @@ from dotenv import load_dotenv
 import llm
 from extract import extract_pdf
 from fields import build_user_prompt
-from verify import check, summary
+from verify import check, schema_errors, summary
 
 
 def extract_fields(files: list[dict]) -> tuple[dict, dict, llm.LLMResult]:
     """files: [{"name", "pages": [{"page", "text"}]}] in a stable order (file numbers are 1-based indexes)."""
-    res = llm.call(build_user_prompt(files))
-    checked = check(res.data, files)
+    prompt = build_user_prompt(files)
+    try:
+        res = llm.call(prompt)
+    except llm.LLMError as e:
+        if "invalid JSON" not in str(e):
+            raise
+        res = llm.call(prompt + "\n\nYour previous answer was not valid JSON. Return one complete JSON object only.")
+    errs = schema_errors(res.data)
+    if errs:
+        # One retry, telling the model exactly what was wrong (mostly needed for Gemini,
+        # which can't be forced to follow the schema).
+        fix = ("\n\nYour previous answer did not match the required JSON schema:\n- " + "\n- ".join(errs[:10])
+               + "\nReturn the complete answer again, fixing these problems.")
+        res = llm.call(prompt + fix)
+    checked = check(res.data, files)  # raises ValueError if it's still malformed
     return checked, summary(checked), res
 
 
