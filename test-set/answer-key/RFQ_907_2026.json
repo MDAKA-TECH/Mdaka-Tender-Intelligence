@@ -241,7 +241,7 @@
       "id": "references",
       "name": "Current list of references for similar work",
       "match": [
-        "reference"
+        "\\breference"
       ],
       "maps_to": null,
       "mandatory": null,
@@ -267,22 +267,6 @@
       "quote": "Quotes should be on the company letterhead, indicating the VAT registration number."
     },
     {
-      "id": "experience",
-      "name": "Background and experience form (two largest contracts)",
-      "match": [
-        "background",
-        "experience",
-        "contracts"
-      ],
-      "maps_to": null,
-      "mandatory": null,
-      "core": false,
-      "pages": [
-        7
-      ],
-      "quote": "LIST THE TWO LARGEST CONTRACTS / ASSIGNMENTS BY YOUR FIRM"
-    },
-    {
       "id": "cvs",
       "name": "Evidence of the resource's qualifications and experience (CV, certificates)",
       "match": [
@@ -297,6 +281,22 @@
         6
       ],
       "quote": "Demonstrated experience delivering data engineering solutions in Azure-based environments."
+    },
+    {
+      "id": "experience",
+      "name": "Background and experience form (two largest contracts)",
+      "match": [
+        "background",
+        "experience",
+        "contracts"
+      ],
+      "maps_to": null,
+      "mandatory": null,
+      "core": false,
+      "pages": [
+        7
+      ],
+      "quote": "LIST THE TWO LARGEST CONTRACTS / ASSIGNMENTS BY YOUR FIRM"
     }
   ],
   "disqualifiers": [

@@ -185,7 +185,82 @@ def check(data: dict, files: list[dict]) -> dict:
     for k in LIST_KEYS:
         for it in out[k]:
             _check_source(it, files)
+    safety_net(out, files)
     return out
+
+
+# ---------------------------------------------------------------- keyword safety net
+# The standard company-vault documents are asked for in predictable words. If the text asks for
+# one and the AI didn't list it, add it (low confidence) so a person confirms it instead of it
+# silently going missing. This doesn't depend on the model, so it catches run-to-run misses.
+VAULT_KEYWORDS = {
+    "tax_compliance": ("Tax compliance status (TCS) PIN", "registration",
+                       r"tax compliance status|\btcs\b|tax clearance|unique personal identification number \(pin\) issued by sars"),
+    "csd_report": ("Central Supplier Database (CSD) registration / report", "registration",
+                   r"central supplier database|\bcsd (report|registration|number|no)\b|registered on (the )?csd"),
+    "bbbee": ("B-BBEE certificate or sworn affidavit", "certificate",
+              r"b-?bbee (certificate|status level certificate)|bbbee certificate|sworn affidavit"),
+    "cipc_registration": ("CIPC company registration documents", "registration",
+                          r"\bcipc\b|company registration certificate|\bcor ?14\.3\b"),
+    "bank_letter": ("Bank confirmation letter", "financial", r"bank confirmation letter|cancelled cheque"),
+    "coid": ("COID letter of good standing", "certificate", r"\bcoid\b|letter of good standing"),
+}
+
+
+_REQUIRE = re.compile(r"\b(must|shall|submit\w*|attach\w*|required|provide|proof|enclose)\b", re.I)
+
+
+def _find_line(pattern: str, files: list[dict]) -> tuple[int, int, str] | None:
+    """First line that names the document and sounds like a requirement; else the first mention."""
+    rx = re.compile(pattern, re.I)
+    first = None
+    for fi, f in enumerate(files, start=1):
+        for pg in f["pages"]:
+            for line in pg["text"].splitlines():
+                if rx.search(line):
+                    hit = (fi, pg["page"], " ".join(line.split())[:200])
+                    if _REQUIRE.search(line):
+                        return hit
+                    first = first or hit
+    return first
+
+
+# Standard forms found in almost every SA tender pack: (name, category, sbd, text pattern, already-listed pattern).
+FORM_KEYWORDS = [
+    ("Pricing schedule / price form", "pricing", None,
+     r"pricing schedule|price schedule|bill of quantities|sbd ?3\.\d", r"pric|bill of quantities|sbd ?3\.|rate"),
+    ("SBD 4 bidder's disclosure / declaration of interest", "declaration", "SBD 4",
+     r"sbd ?4\b|bidder.?s disclosure|declaration of interest", r"sbd ?4\b|disclosure|declaration of interest"),
+    ("SBD 6.1 preference points claim form", "form", "SBD 6.1",
+     r"sbd ?6\.1|preference points claim form", r"sbd ?6\.1|preference point"),
+]
+
+
+def _add(out: dict, hit: tuple[int, int, str], name: str, category: str, maps_to: str | None, sbd: str | None) -> None:
+    fi, page, quote = hit
+    out["returnables"].append({
+        "name": name, "category": category, "sbd_number": sbd, "maps_to": maps_to,
+        "mandatory": True, "conditions": None, "file": fi, "page": page, "quote": quote,
+        "confidence": "low", "verified": True, "added_by": "keyword_check",
+        "notes": ["Added by keyword check: the document mentions this but the AI didn't list it. Confirm whether it's required."],
+    })
+
+
+def safety_net(out: dict, files: list[dict]) -> None:
+    covered = {r.get("maps_to") for r in out["returnables"]}
+    names = " | ".join(f"{r['name']} {r.get('sbd_number') or ''}" for r in out["returnables"])
+    for name, category, sbd, pattern, listed in FORM_KEYWORDS:
+        if re.search(listed, names, re.I):
+            continue
+        hit = _find_line(pattern, files)
+        if hit:
+            _add(out, hit, name, category, None, sbd)
+    for doc_type, (name, category, pattern) in VAULT_KEYWORDS.items():
+        if doc_type in covered:
+            continue
+        hit = _find_line(pattern, files)
+        if hit:
+            _add(out, hit, name, category, doc_type, None)
 
 
 def summary(checked: dict) -> dict:

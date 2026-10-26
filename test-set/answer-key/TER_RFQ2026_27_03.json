@@ -1,0 +1,402 @@
+{
+  "name": "TER_RFQ2026_27_03 (4 files)",
+  "slug": "TER_RFQ2026_27_03",
+  "files": [
+    "RFQ_Background Checks and Psychometric Assessments.pdf",
+    "SBD 4 -Annexure A (1).pdf",
+    "SBD 6.1 IN TERMS OF PPR2022-  OCT - 2024.pdf",
+    "Supplier POPIA Consent.pdf"
+  ],
+  "fields": {
+    "reference_no": {
+      "value": "TER/RFQ2026/27/03",
+      "pages": [
+        1
+      ],
+      "quote": "RFQ TER/RFQ2026/27/03",
+      "must": true
+    },
+    "issuing_entity": {
+      "contains_any": [
+        "transport economic regulator",
+        "ports regulator"
+      ],
+      "pages": [
+        1,
+        2,
+        10,
+        11,
+        [
+          4,
+          1
+        ]
+      ],
+      "value": "Transport Economic Regulator (Ports Regulator)",
+      "quote": "FOR THE TRANSPORT ECONOMIC REGULATOR",
+      "must": true
+    },
+    "description": {
+      "contains_any": [
+        "background",
+        "psychometric"
+      ],
+      "pages": [
+        1,
+        2
+      ],
+      "value": "Background checks and Hogan psychometric assessments",
+      "quote": "CONDUCT BACKGROUND CHECKS, STATUTORY DISQUALIFICATION VERIFICATION AND HOGAN EXECUTIVE",
+      "must": true
+    },
+    "closing": {
+      "value": {
+        "date": "2026-10-23",
+        "time": "11:00"
+      },
+      "pages": [
+        1
+      ],
+      "quote": "CLOSING DATE & TIME 23 October 2026 at 11H00",
+      "must": true,
+      "critical": true
+    },
+    "submission": {
+      "value": {
+        "method": "email",
+        "address": "quotations@portsregulator.org"
+      },
+      "pages": [
+        1
+      ],
+      "quote": "Bidders must submit responses via e-mail at: quotations@portsregulator.org",
+      "must": true
+    },
+    "briefing": {
+      "expect": "not_found",
+      "accept_none": true,
+      "note": "Printed as 'BRIEFING SESSION N/A'.",
+      "must": true
+    },
+    "evaluation": {
+      "value": {
+        "preference_system": "80/20",
+        "functionality_threshold": null
+      },
+      "pages": [
+        8,
+        [
+          3,
+          1
+        ],
+        [
+          3,
+          2
+        ]
+      ],
+      "quote": "Price will be composed of 80%, and specific goals will be composed of 20%.",
+      "note": "No literal '80/20' in the RFQ; the SBD 6.1 form lists both systems."
+    },
+    "validity_days": {
+      "value": 90,
+      "pages": [
+        10
+      ],
+      "quote": "remain open for acceptance by the Ports Regulator for a period of 90 days"
+    },
+    "contact": {
+      "value": {
+        "email": "quotations@portsregulator.org"
+      },
+      "pages": [
+        1,
+        10
+      ],
+      "quote": "All enquiries relating to this RFQ should be sent via email: quotations@portsregulator.org"
+    },
+    "query_deadline": {
+      "expect": "not_found",
+      "note": "No last date for questions."
+    },
+    "pricing_format": {
+      "contains_any": [
+        "vat",
+        "unit",
+        "rate",
+        "per candidate"
+      ],
+      "pages": [
+        8,
+        9,
+        10,
+        11
+      ],
+      "value": "Unit rates per service in the pricing schedule, inclusive of VAT",
+      "quote": "Bidders' price quotations must be inclusive of all applicable taxes (including VAT)."
+    }
+  },
+  "returnables": [
+    {
+      "id": "sbd61",
+      "name": "SBD 6.1 preference points claim form",
+      "match": [
+        "sbd ?6\\.?1",
+        "preference point"
+      ],
+      "maps_to": null,
+      "mandatory": true,
+      "core": true,
+      "pages": [
+        7,
+        11,
+        [
+          3,
+          1
+        ],
+        [
+          3,
+          2
+        ],
+        [
+          3,
+          3
+        ],
+        [
+          3,
+          4
+        ],
+        [
+          3,
+          5
+        ]
+      ],
+      "shared": true,
+      "quote": "The SBD forms must be completed, signed by the authorised company representative."
+    },
+    {
+      "id": "sbd4",
+      "name": "SBD 4 bidder's disclosure (declaration of interest)",
+      "match": [
+        "sbd ?4",
+        "disclosure",
+        "declaration of interest"
+      ],
+      "maps_to": null,
+      "mandatory": true,
+      "core": true,
+      "pages": [
+        7,
+        11,
+        [
+          2,
+          1
+        ],
+        [
+          2,
+          2
+        ],
+        [
+          2,
+          3
+        ]
+      ],
+      "shared": true,
+      "quote": "Declaration of Interest (SBD 4and 6.1)"
+    },
+    {
+      "id": "pbsa",
+      "name": "Proof of PBSA or SABSA registration",
+      "match": [
+        "pbsa",
+        "sabsa",
+        "screen\\w* association"
+      ],
+      "maps_to": null,
+      "mandatory": true,
+      "core": true,
+      "pages": [
+        7,
+        11
+      ],
+      "quote": "The bidder must be registered with the Professional Background Screening Association (PBSA)"
+    },
+    {
+      "id": "references",
+      "name": "Three signed client reference letters (2 screening, 1 psychometric, not older than 5 years)",
+      "match": [
+        "\\breference"
+      ],
+      "maps_to": null,
+      "mandatory": true,
+      "core": true,
+      "pages": [
+        7,
+        11
+      ],
+      "quote": "three (3) signed and dated client reference letters, on client letterhead, not older than five (5) years"
+    },
+    {
+      "id": "csd",
+      "name": "Proof of CSD registration (CSD report)",
+      "match": [
+        "\\bcsd\\b",
+        "central supplier"
+      ],
+      "maps_to": "csd_report",
+      "mandatory": true,
+      "core": true,
+      "pages": [
+        7,
+        11
+      ],
+      "quote": "The bidder must submit proof of registration on CSD (Central Supplier Database)."
+    },
+    {
+      "id": "bbbee",
+      "name": "B-BBEE certificate or sworn affidavit (for specific-goal points)",
+      "match": [
+        "b-?bbee",
+        "affidavit"
+      ],
+      "maps_to": "bbbee",
+      "mandatory": null,
+      "core": true,
+      "pages": [
+        8,
+        [
+          3,
+          1
+        ],
+        [
+          3,
+          2
+        ],
+        [
+          3,
+          3
+        ],
+        [
+          3,
+          4
+        ],
+        [
+          3,
+          5
+        ]
+      ],
+      "quote": "Valid B-BBEE certificate or sworn affidavit",
+      "note": "Needed to claim the 20 points, so mandatory can be either."
+    },
+    {
+      "id": "pricing",
+      "name": "Quotation on company letterhead with the priced schedule (unit rates, VAT incl.)",
+      "match": [
+        "pric",
+        "quot",
+        "letterhead",
+        "\\brate"
+      ],
+      "maps_to": null,
+      "mandatory": true,
+      "core": true,
+      "pages": [
+        8,
+        9,
+        10,
+        11
+      ],
+      "quote": "Quotation on a company letterhead"
+    },
+    {
+      "id": "popia",
+      "name": "Supplier POPIA consent form",
+      "match": [
+        "popia",
+        "consent",
+        "personal information"
+      ],
+      "maps_to": null,
+      "mandatory": null,
+      "core": false,
+      "pages": [
+        [
+          4,
+          1
+        ],
+        [
+          4,
+          2
+        ],
+        [
+          4,
+          3
+        ]
+      ],
+      "quote": "SUPPLIER CONSENT: PROTECTION OF PERSONAL INFORMATION ACT"
+    },
+    {
+      "id": "cover",
+      "name": "RFQ cover page with supplier details, signed",
+      "match": [
+        "supplier (name|detail|information)",
+        "cover",
+        "rfq (form|document)"
+      ],
+      "maps_to": null,
+      "mandatory": null,
+      "core": false,
+      "pages": [
+        1
+      ],
+      "quote": "SIGNATURE OF BIDDER"
+    }
+  ],
+  "disqualifiers": [
+    {
+      "id": "late",
+      "name": "Late or incomplete submission",
+      "match": [
+        "late",
+        "incomplete",
+        "after the closing"
+      ],
+      "core": true,
+      "pages": [
+        1
+      ],
+      "quote": "Late and incomplete submissions will invalidate the quote submitted."
+    },
+    {
+      "id": "mandatory",
+      "name": "Not meeting the Phase 2 mandatory requirements (references, PBSA/SABSA)",
+      "match": [
+        "mandatory",
+        "phase 2",
+        "pbsa",
+        "sabsa",
+        "reference"
+      ],
+      "core": true,
+      "pages": [
+        7
+      ],
+      "quote": "Failure by the bidder to provide the mandatory requirements as indicated above will lead to bidder's proposal not being considered"
+    },
+    {
+      "id": "defaulters",
+      "name": "Listed on the Register for Tender Defaulters / Restricted Suppliers",
+      "match": [
+        "defaulter",
+        "restricted"
+      ],
+      "core": false,
+      "pages": [
+        [
+          2,
+          1
+        ]
+      ],
+      "quote": "Register for Tender Defaulters"
+    }
+  ],
+  "special_requirements_note": "Expected (not scored): PBSA/SABSA registration; Hogan accreditation; 12-month as-and-when contract."
+}

@@ -17,6 +17,7 @@ import pymupdf  # PyMuPDF
 MIN_WORDS = 25        # fewer words than this on a page with images → probably scanned
 OCR_DPI = 300
 OCR_LANG = "eng"
+OCR_WORKERS = 0      # 0 = one per CPU core
 
 _word = re.compile(r"[A-Za-z0-9]{2,}")
 
@@ -79,17 +80,21 @@ def _needs_ocr(page: "pymupdf.Page", text: str) -> bool:
     return words < MIN_WORDS and len(page.get_images(full=False)) > 0
 
 
-def _ocr_page(page: "pymupdf.Page") -> str:
+def _render(page: "pymupdf.Page") -> bytes:
+    # Rendering stays on the main thread: PyMuPDF documents aren't thread-safe.
+    return page.get_pixmap(dpi=OCR_DPI, colorspace=pymupdf.csGRAY).tobytes("png")
+
+
+def _ocr_png(png: bytes) -> str:
     import pytesseract
     from PIL import Image
 
-    pix = page.get_pixmap(dpi=OCR_DPI, colorspace=pymupdf.csGRAY)
-    img = Image.open(io.BytesIO(pix.tobytes("png")))
-    return pytesseract.image_to_string(img, lang=OCR_LANG, config="--psm 3")
+    return pytesseract.image_to_string(Image.open(io.BytesIO(png)), lang=OCR_LANG, config="--psm 3")
 
 
-def extract_pdf(data: bytes, ocr: bool | None = None) -> Result:
-    """Extract text from PDF bytes. ocr=None → use OCR if Tesseract is installed."""
+def extract_pdf(data: bytes, ocr: bool | None = None, progress=None) -> Result:
+    """Extract text from PDF bytes. ocr=None → use OCR if Tesseract is installed.
+    progress: optional callback(done, total) while OCR runs."""
     use_ocr = tesseract_available() if ocr is None else ocr
     try:
         doc = pymupdf.open(stream=data, filetype="pdf")
@@ -99,23 +104,44 @@ def extract_pdf(data: bytes, ocr: bool | None = None) -> Result:
         raise ValueError("The PDF is password-protected. Upload an unlocked copy.")
 
     res = Result(page_count=doc.page_count)
-    for i, page in enumerate(doc, start=1):
+    texts: list[str] = []
+    scanned: list[int] = []  # 0-based indexes of pages to OCR
+    for i, page in enumerate(doc):
         text = page.get_text("text", sort=True)
-        used = False
+        texts.append(text)
         if _needs_ocr(page, text):
             if use_ocr:
-                try:
-                    ocr_text = _ocr_page(page)
-                    # Keep whichever has more real words (some pages have a thin text layer over a scan).
-                    if len(_word.findall(ocr_text)) > len(_word.findall(text)):
-                        text, used = ocr_text, True
-                        res.ocr_pages.append(i)
-                except Exception as e:  # noqa: BLE001
-                    res.warnings.append(f"OCR failed on page {i}: {e}")
+                scanned.append(i)
             else:
-                res.needs_ocr.append(i)
-        res.pages.append(PageText(page=i, text=_clean(text), ocr=used))
+                res.needs_ocr.append(i + 1)
+
+    ocr_text: dict[int, str] = {}
+    if scanned:
+        # Tesseract runs as a separate process per page, so threads give real parallelism.
+        from concurrent.futures import ThreadPoolExecutor, as_completed
+        import os
+
+        workers = max(1, min(OCR_WORKERS or (os.cpu_count() or 2), len(scanned)))
+        with ThreadPoolExecutor(max_workers=workers) as pool:
+            futures = {pool.submit(_ocr_png, _render(doc[i])): i for i in scanned}
+            for n, fut in enumerate(as_completed(futures), start=1):
+                i = futures[fut]
+                try:
+                    ocr_text[i] = fut.result()
+                except Exception as e:  # noqa: BLE001
+                    res.warnings.append(f"OCR failed on page {i + 1}: {e}")
+                if progress:
+                    progress(n, len(scanned))
     doc.close()
+
+    for i, text in enumerate(texts):
+        used = False
+        o = ocr_text.get(i)
+        # Keep whichever has more real words (some pages have a thin text layer over a scan).
+        if o is not None and len(_word.findall(o)) > len(_word.findall(text)):
+            text, used = o, True
+            res.ocr_pages.append(i + 1)
+        res.pages.append(PageText(page=i + 1, text=_clean(text), ocr=used))
 
     if res.needs_ocr:
         res.warnings.append(

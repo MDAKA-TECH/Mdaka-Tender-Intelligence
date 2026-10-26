@@ -12,7 +12,7 @@ from pathlib import Path
 from dotenv import load_dotenv
 
 import llm
-from extract import extract_pdf
+from extract import extract_pdf, tesseract_available
 from fields import build_user_prompt
 from verify import check, schema_errors, summary
 
@@ -37,11 +37,38 @@ def extract_fields(files: list[dict]) -> tuple[dict, dict, llm.LLMResult]:
     return checked, summary(checked), res
 
 
-def files_from_pdfs(paths: list[str]) -> list[dict]:
+CACHE_VERSION = 1  # bump when extraction changes, so cached text is redone
+
+
+def files_from_pdfs(paths: list[str], cache_dir: str | Path | None = None) -> list[dict]:
+    """Page text for each PDF. With cache_dir, text is saved per file content, so scanned PDFs
+    are only OCR'd once (used by evaluate.py; the worker reads each upload once anyway)."""
+    import hashlib
+
     out = []
     for p in paths:
-        r = extract_pdf(Path(p).read_bytes())
-        out.append({"name": Path(p).name, "pages": [{"page": pg.page, "text": pg.text} for pg in r.pages]})
+        data = Path(p).read_bytes()
+        cached = None
+        if cache_dir:
+            digest = hashlib.sha256(data).hexdigest()[:24]
+            cached = Path(cache_dir) / f"{digest}-v{CACHE_VERSION}.json"
+            if cached.exists():
+                entry = json.loads(cached.read_text(encoding="utf-8"))
+                # A cache made without OCR is ignored once OCR is available.
+                if not entry["needs_ocr"] or not tesseract_available():
+                    out.append({**entry, "name": Path(p).name})
+                    continue
+
+        def show(done: int, total: int, name: str = Path(p).name) -> None:
+            print(f"\r  OCR {name}: page {done}/{total}", end="" if done < total else "\n", file=sys.stderr, flush=True)
+
+        r = extract_pdf(data, progress=show)
+        # needs_ocr: scanned pages that couldn't be read because Tesseract isn't installed.
+        entry = {"name": Path(p).name, "pages": [{"page": pg.page, "text": pg.text} for pg in r.pages], "needs_ocr": r.needs_ocr}
+        if cached:
+            cached.parent.mkdir(parents=True, exist_ok=True)
+            cached.write_text(json.dumps(entry, ensure_ascii=False), encoding="utf-8")
+        out.append(entry)
     return out
 
 

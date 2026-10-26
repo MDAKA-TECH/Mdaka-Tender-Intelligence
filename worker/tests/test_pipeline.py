@@ -29,8 +29,13 @@ def nf() -> dict:
     return {"status": "not_found", "value": None, "file": None, "page": None, "quote": None, "confidence": None}
 
 
+def _fp(ref) -> tuple[int, int]:
+    return (1, ref) if isinstance(ref, int) else (ref[0], ref[1])
+
+
 def found(value, page, quote, conf="high") -> dict:
-    return {"status": "found", "value": value, "file": 1, "page": page, "quote": quote, "confidence": conf}
+    f, p = _fp(page)
+    return {"status": "found", "value": value, "file": f, "page": p, "quote": quote, "confidence": conf}
 
 
 def perfect_answer(key: dict) -> dict:
@@ -42,7 +47,13 @@ def perfect_answer(key: dict) -> dict:
             return nf()
         v = e["value"]
         if name == "contact":
-            v = {"name": "A. Vokwana", "email": v["email"], "phone": None}
+            v = {"name": None, "email": v["email"][0] if isinstance(v["email"], list) else v["email"], "phone": None}
+        if name == "submission" and "@" not in v["address"]:
+            v = {**v, "address": "Corner Blaauwberg & River Street, Ladanna"}
+        if name == "briefing":
+            v = {**v, "venue": "Capricorn District Office"}
+        if name in ("issuing_entity", "description", "pricing_format") and "contains_any" in e:
+            v = e["value"]
         if name == "closing":
             v = dict(v)
         return found(v, e["pages"][0], e["quote"])
@@ -50,19 +61,19 @@ def perfect_answer(key: dict) -> dict:
     out["returnables"] = [{
         "name": r["name"], "category": "other", "sbd_number": None, "maps_to": r["maps_to"],
         "mandatory": True if r["mandatory"] is None else r["mandatory"], "conditions": None,
-        "file": 1, "page": r["pages"][0], "quote": r["quote"], "confidence": "high",
+        "file": _fp(r["pages"][0])[0], "page": _fp(r["pages"][0])[1], "quote": r["quote"], "confidence": "high",
     } for r in key["returnables"]]
-    out["disqualifiers"] = [{"condition": d["name"], "file": 1, "page": d["pages"][0], "quote": d["quote"], "confidence": "high"}
-                            for d in key["disqualifiers"]]
+    out["disqualifiers"] = [{"condition": d["name"], "file": _fp(d["pages"][0])[0], "page": _fp(d["pages"][0])[1],
+                             "quote": d["quote"], "confidence": "high"} for d in key["disqualifiers"]]
     out["special_requirements"] = []
     return out
 
 
-def run_fixture(answer: dict, pdf: str) -> dict:
+def run_fixture(answer: dict, pdf) -> dict:
     with tempfile.NamedTemporaryFile("w", suffix=".json", delete=False, encoding="utf-8") as t:
         json.dump(answer, t)
     os.environ.update(LLM_PROVIDER="fixture", LLM_FIXTURE=t.name)
-    checked, _s, _r = extract_fields(files_from_pdfs([pdf]))
+    checked, _s, _r = extract_fields(files_from_pdfs(pdf if isinstance(pdf, list) else [pdf]))
     os.unlink(t.name)
     return checked
 
@@ -97,11 +108,51 @@ def test_perfect_answer_passes_both_tenders():
         assert r["passed"], (n, [row for row in r["rows"] if row[2] not in ("correct", "skipped")])
 
 
+def test_perfect_answer_passes_multi_file_pack():
+    key = json.loads((TEST_SET / "answer-key" / "TER_RFQ2026_27_03.json").read_text(encoding="utf-8"))
+    pdfs = [str(TEST_SET / f) for f in evaluate.key_files(key)]
+    checked = run_fixture(perfect_answer(key), pdfs)
+    unverified = [r["name"] for r in checked["returnables"] if not r["verified"]]
+    assert not unverified, unverified
+    r = evaluate.score_tender(key, checked)
+    assert r["passed"], [row for row in r["rows"] if row[2] not in ("correct", "skipped")]
+    # A briefing reported as 'not applicable' (no date, not compulsory) counts as right for "N/A".
+    a = perfect_answer(key)
+    a["briefing"] = found({"compulsory": False, "date": None, "time": None, "venue": None}, 1, "BRIEFING SESSION N/A")
+    verdict = {n: v for _g, n, v, _d, _c in evaluate.score_tender(key, run_fixture(a, pdfs))["rows"]}
+    assert verdict["briefing"] == "correct"
+
+
+def test_shared_item_covers_several_forms():
+    key = {"returnables": [
+        {"id": "sbd4", "match": [r"sbd ?4", r"sbd forms"], "shared": True},
+        {"id": "sbd61", "match": [r"sbd ?6\.?1", r"sbd forms"], "shared": True},
+        {"id": "csd", "match": [r"csd"]}]}
+    got = [{"name": "Fully completed SBD forms (SBD 1, 3.2, 4, 6.1)"}, {"name": "CSD registration"}]
+    m = evaluate.match_items(key["returnables"], got, "name")
+    assert m == {"sbd4": 0, "sbd61": 0, "csd": 1}
+
+
+def test_safety_net_adds_missed_vault_documents():
+    files = [{"name": "t.pdf", "pages": [
+        {"page": 1, "text": "SUPPLIER TAX COMPLIANCE STATUS\nIS THE ENTITY LIABLE FOR TAX?"},
+        {"page": 2, "text": "2.4 BIDDERS MAY ALSO SUBMIT A PRINTED TCS CERTIFICATE TOGETHER WITH THE BID.\nAll applicable taxes included."}]}]
+    out = {"returnables": [{"name": "CSD report", "maps_to": "csd_report"}]}
+    verify.safety_net(out, files)
+    added = [r for r in out["returnables"] if r.get("added_by") == "keyword_check"]
+    assert [r["maps_to"] for r in added] == ["tax_compliance"]           # CSD already listed; no B-BBEE/CIPC mentioned
+    assert added[0]["page"] == 2 and added[0]["confidence"] == "low"     # prefers the line that states a requirement
+    out2 = {"returnables": [{"name": "Tax PIN", "maps_to": "tax_compliance"}]}
+    verify.safety_net(out2, files)
+    assert len(out2["returnables"]) == 1                                 # nothing added when the AI already has it
+
+
 def test_typical_mistakes_fail_the_gate():
     key = load_key("906")
     bad = perfect_answer(key)
     bad["closing"]["value"]["time"] = "11:00"                       # invented closing time, high confidence
-    bad["returnables"] = [r for r in bad["returnables"] if "Declaration" not in r["name"]]  # missed mandatory form
+    bad["returnables"] = [r for r in bad["returnables"] if "Declaration" not in r["name"]]  # missed form (keyword net catches it)
+    bad["returnables"] = [r for r in bad["returnables"] if "references" not in r["name"]]   # missed requirement (no net for this)
     bad["validity_days"] = found(90, 2, "Bids must remain valid for 90 days", "high")       # made-up field and quote
     bad["returnables"][1]["page"] = 7                                # tax PIN cited on the wrong page (quote is on p.2)
     checked = run_fixture(bad, str(TEST_SET / key["file"]))
@@ -114,7 +165,8 @@ def test_typical_mistakes_fail_the_gate():
     r = evaluate.score_tender(key, checked)
     verdict = {name: v for _g, name, v, _d, _c in r["rows"]}
     assert verdict["closing"] == "wrong"          # invented time at high confidence is a hard fail
-    assert verdict["declaration"] == "missed"
+    assert verdict["declaration"] == "flagged"   # AI missed it; the keyword safety net added it at low confidence
+    assert verdict["references"] == "missed"
     assert verdict["validity_days"] == "flagged"  # made-up value, but the verifier flagged it low
     assert not r["critical_ok"] and not r["passed"]
 

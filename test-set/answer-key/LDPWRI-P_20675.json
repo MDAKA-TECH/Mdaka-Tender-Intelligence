@@ -1,0 +1,623 @@
+{
+  "name": "LDPWRI-P_20675 (scanned, 56 pages)",
+  "slug": "LDPWRI-P_20675",
+  "files": [
+    "Office Accommodation LDPWRI-P 20675 Soekmekaar.pdf"
+  ],
+  "fields": {
+    "reference_no": {
+      "value": "LDPWRI-P/20675",
+      "pages": [
+        3,
+        1
+      ],
+      "quote": "Bid Number... LDPWRI-P/20675",
+      "must": true,
+      "note": "The bid number box on page 1 is blank in the scan; it's printed on the SBD 3.2 form."
+    },
+    "issuing_entity": {
+      "contains_any": [
+        "public works",
+        "limpopo"
+      ],
+      "pages": [
+        1,
+        9,
+        18
+      ],
+      "value": "Limpopo Department of Public Works, Roads and Infrastructure",
+      "quote": "REQUIREMENTS OF LIMPOPO DEPARTMENT OF PUBLIC WORKS ROADS & INFRASTRUCTURE",
+      "must": true
+    },
+    "description": {
+      "contains_any": [
+        "office accom"
+      ],
+      "pages": [
+        1,
+        9,
+        18
+      ],
+      "value": "Office accommodation in Soekmekaar for 9 years 11 months",
+      "quote": "OFFICE ACCOMODATION FOR THE DEPARTMENT OF ECONOMIC DEVELOPMENT",
+      "must": true
+    },
+    "closing": {
+      "value": {
+        "date": "2026-10-30",
+        "time": "11:00"
+      },
+      "pages": [
+        3
+      ],
+      "quote": "Closing Time 11:00 ... Closing date...30 OCTOBER 2026",
+      "must": true,
+      "critical": true,
+      "note": "Only printed on the SBD 3.2 pricing form (page 3)."
+    },
+    "submission": {
+      "value": {
+        "method": "tender_box",
+        "address": "blaauwberg"
+      },
+      "pages": [
+        1
+      ],
+      "quote": "BID RESPONSE DOCUMENTS MAY BE DEPOSITED IN THE BID BOX SITUATED AT",
+      "must": true
+    },
+    "briefing": {
+      "value": {
+        "compulsory": true,
+        "date": "2026-10-20",
+        "time": "11:30"
+      },
+      "pages": [
+        55
+      ],
+      "quote": "There will be a compulsory briefing session for this bid.",
+      "must": true,
+      "note": "Venue: Capricorn District Office. Only on page 55 of 56."
+    },
+    "evaluation": {
+      "value": {
+        "preference_system": "90/10",
+        "functionality_threshold": null
+      },
+      "pages": [
+        13,
+        14,
+        15,
+        16,
+        9,
+        10,
+        11
+      ],
+      "quote": "The 90/10 preference point system will be applicable in this tender."
+    },
+    "validity_days": {
+      "expect": "not_found",
+      "note": "No validity period is stated (only the generic GCC wording)."
+    },
+    "contact": {
+      "value": {
+        "email": [
+          "malapanehs@dpw.limpopo.gov.za",
+          "baloyimt@dpw.limpopo.gov.za"
+        ]
+      },
+      "pages": [
+        1
+      ],
+      "quote": "Malapanehs@dpw.limpopo.gov.za"
+    },
+    "query_deadline": {
+      "expect": "not_found",
+      "note": "No last date for questions."
+    },
+    "pricing_format": {
+      "contains_any": [
+        "sbd 3.2",
+        "non-firm",
+        "non firm",
+        "taxes",
+        "vat",
+        "figures",
+        "words"
+      ],
+      "pages": [
+        3,
+        4,
+        10
+      ],
+      "value": "SBD 3.2 non-firm price schedule, all applicable taxes included; prices in figures and words on the Form of Offer",
+      "quote": "PRICING SCHEDULE — NON-FIRM PRICES"
+    }
+  },
+  "returnables": [
+    {
+      "id": "sbd1",
+      "name": "SBD 1 invitation to bid, completed",
+      "match": [
+        "sbd ?1\\b",
+        "invitation to bid",
+        "sbd forms"
+      ],
+      "maps_to": null,
+      "mandatory": true,
+      "core": true,
+      "pages": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        10,
+        13,
+        14,
+        15,
+        16,
+        17
+      ],
+      "shared": true,
+      "quote": "Fully completed SBD forms (SBDs 1, 3.2, 4, 6.1& GCC)"
+    },
+    {
+      "id": "sbd32",
+      "name": "SBD 3.2 pricing schedule (non-firm prices)",
+      "match": [
+        "sbd ?3\\.?2",
+        "pricing schedule",
+        "sbd forms"
+      ],
+      "maps_to": null,
+      "mandatory": true,
+      "core": true,
+      "pages": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        10,
+        13,
+        14,
+        15,
+        16,
+        17
+      ],
+      "shared": true,
+      "quote": "PRICING SCHEDULE — NON-FIRM PRICES"
+    },
+    {
+      "id": "sbd4",
+      "name": "SBD 4 bidder's disclosure",
+      "match": [
+        "sbd ?4",
+        "disclosure",
+        "sbd forms"
+      ],
+      "maps_to": null,
+      "mandatory": true,
+      "core": true,
+      "pages": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        10,
+        13,
+        14,
+        15,
+        16,
+        17
+      ],
+      "shared": true,
+      "quote": "BIDDER’S DISCLOSURE"
+    },
+    {
+      "id": "sbd61",
+      "name": "SBD 6.1 preference points claim form",
+      "match": [
+        "sbd ?6\\.?1",
+        "preference point",
+        "sbd forms"
+      ],
+      "maps_to": null,
+      "mandatory": true,
+      "core": true,
+      "pages": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        10,
+        13,
+        14,
+        15,
+        16,
+        17
+      ],
+      "shared": true,
+      "quote": "PREFERENCE POINTS CLAIM FORM IN TERMS OF THE PREFERENTIAL"
+    },
+    {
+      "id": "gcc",
+      "name": "Signed acceptance of the General Conditions of Contract (GCC)",
+      "match": [
+        "\\bgcc\\b",
+        "general conditions"
+      ],
+      "maps_to": null,
+      "mandatory": true,
+      "core": true,
+      "pages": [
+        10,
+        54,
+        2
+      ],
+      "shared": true,
+      "quote": "FAILURE TO ACCPET ALL THE GENERAL CONDITIONS OF CONTRACT AS SPECIFIED IN THE ABOVE WILL RESULT IN DISQUALIFICATION"
+    },
+    {
+      "id": "csd",
+      "name": "CSD registration",
+      "match": [
+        "\\bcsd\\b",
+        "central supplier"
+      ],
+      "maps_to": "csd_report",
+      "mandatory": true,
+      "core": true,
+      "pages": [
+        10,
+        31,
+        2,
+        1
+      ],
+      "quote": "The Central Supplier Database (CSD) report must be submitted."
+    },
+    {
+      "id": "authority",
+      "name": "Proof of authority to sign (company resolution / power of attorney)",
+      "match": [
+        "resolution",
+        "power of attorney",
+        "authori[sz]"
+      ],
+      "maps_to": null,
+      "mandatory": true,
+      "core": true,
+      "pages": [
+        2,
+        10,
+        32
+      ],
+      "quote": "(Proof of authority must be submitted e.g. company resolution)"
+    },
+    {
+      "id": "architect",
+      "name": "Architect's plans, sketches/drawings and signed architect's certificate (grading, lettable area)",
+      "match": [
+        "architect",
+        "sketch",
+        "drawing"
+      ],
+      "maps_to": null,
+      "mandatory": true,
+      "core": true,
+      "pages": [
+        31,
+        32
+      ],
+      "quote": "Architect's plans of the building must be included in the tender."
+    },
+    {
+      "id": "maintenance",
+      "name": "Maintenance plan",
+      "match": [
+        "maintenance plan"
+      ],
+      "maps_to": null,
+      "mandatory": true,
+      "core": true,
+      "pages": [
+        32
+      ],
+      "quote": "The tenderer must include a Maintenance Plan in the tender."
+    },
+    {
+      "id": "sapoa",
+      "name": "Proof of SAPOA registration",
+      "match": [
+        "sapoa",
+        "property owners"
+      ],
+      "maps_to": null,
+      "mandatory": true,
+      "core": true,
+      "pages": [
+        32
+      ],
+      "quote": "Proof of Registration with the Head of Department of the South African Property Owners Association (SAPOA) must be submitted."
+    },
+    {
+      "id": "offer",
+      "name": "Form of Offer, signed, prices in figures and words",
+      "match": [
+        "form of offer"
+      ],
+      "maps_to": null,
+      "mandatory": true,
+      "core": true,
+      "pages": [
+        10
+      ],
+      "quote": "Form of Offer must be duly signed and completed."
+    },
+    {
+      "id": "briefing_reg",
+      "name": "Signed attendance register of the compulsory briefing",
+      "match": [
+        "attendance",
+        "briefing"
+      ],
+      "maps_to": null,
+      "mandatory": null,
+      "core": false,
+      "pages": [
+        55
+      ],
+      "quote": "Bidders will be provided with the attendance register and must sign it",
+      "note": "Signed at the briefing, not submitted with the bid, so it's a bonus item."
+    },
+    {
+      "id": "tax",
+      "name": "Tax compliance status (TCS) PIN or certificate",
+      "match": [
+        "\\btax",
+        "\\btcs\\b"
+      ],
+      "maps_to": "tax_compliance",
+      "mandatory": null,
+      "core": true,
+      "pages": [
+        1,
+        2
+      ],
+      "quote": "BIDDERS ARE REQUIRED TO SUBMIT THEIR UNIQUE PERSONAL IDENTIFICATION NUMBER (PIN) ISSUED BY SARS"
+    },
+    {
+      "id": "building",
+      "name": "Approved building plans and OHS / building-regulations compliance certificate",
+      "match": [
+        "building plan",
+        "\\bohs\\b",
+        "occupational",
+        "building regulations",
+        "compliance certificate"
+      ],
+      "maps_to": null,
+      "mandatory": null,
+      "core": true,
+      "pages": [
+        9,
+        18
+      ],
+      "quote": "Approved Building Plans and OHS"
+    },
+    {
+      "id": "lease",
+      "name": "Signed offer to purchase or valid lease contract (existing building)",
+      "match": [
+        "offer to purchase",
+        "lease"
+      ],
+      "maps_to": null,
+      "mandatory": null,
+      "core": true,
+      "pages": [
+        9
+      ],
+      "quote": "Signed Offer to Purchase or Valid Lease Contract"
+    },
+    {
+      "id": "goals",
+      "name": "Specific-goal proofs (disability certificate, CSD, utility bill / proof of residence)",
+      "match": [
+        "disabilit",
+        "utility",
+        "residence",
+        "specific goal"
+      ],
+      "maps_to": null,
+      "mandatory": null,
+      "core": false,
+      "pages": [
+        16
+      ],
+      "quote": "Attach Municipal Utility Bills or Lease"
+    },
+    {
+      "id": "green",
+      "name": "Green Star certificate or green-building commitment letter (functionality)",
+      "match": [
+        "green",
+        "commitment letter"
+      ],
+      "maps_to": null,
+      "mandatory": null,
+      "core": false,
+      "pages": [
+        11,
+        12
+      ],
+      "quote": "Availability of any green star rating certificate"
+    },
+    {
+      "id": "spec",
+      "name": "Initialled minimum-requirements specification",
+      "match": [
+        "specification",
+        "initial"
+      ],
+      "maps_to": null,
+      "mandatory": null,
+      "core": false,
+      "pages": [
+        18
+      ],
+      "quote": "must be initialed and submitted along with all other documents"
+    }
+  ],
+  "disqualifiers": [
+    {
+      "id": "sketches",
+      "name": "Not submitting sketches and drawings of the offered accommodation",
+      "match": [
+        "sketch",
+        "drawing"
+      ],
+      "core": true,
+      "pages": [
+        31
+      ],
+      "quote": "Failure to submit such sketches will disqualify tenderers."
+    },
+    {
+      "id": "admin",
+      "name": "Not submitting the completed SBD forms / not registered on CSD",
+      "match": [
+        "sbd",
+        "non-submission",
+        "\\bcsd\\b"
+      ],
+      "core": true,
+      "pages": [
+        10
+      ],
+      "quote": "Non-submission of the following will lead to bids being disqualified"
+    },
+    {
+      "id": "gcc",
+      "name": "Not accepting all the General Conditions of Contract",
+      "match": [
+        "\\bgcc\\b",
+        "general conditions of contract"
+      ],
+      "core": true,
+      "pages": [
+        54
+      ],
+      "quote": "WILL RESULT IN DISQUALIFICATION OF YOUR BID"
+    },
+    {
+      "id": "correction",
+      "name": "Correction fluid, pencil or unsigned price amendments",
+      "match": [
+        "correction",
+        "pencil",
+        "amendment",
+        "tipp"
+      ],
+      "core": true,
+      "pages": [
+        10
+      ],
+      "quote": "Usage of correction fluid"
+    },
+    {
+      "id": "late",
+      "name": "Late bids",
+      "match": [
+        "late",
+        "after the closing",
+        "stipulated time"
+      ],
+      "core": true,
+      "pages": [
+        2
+      ],
+      "quote": "LATE BIDS WILL NOT BE ACCEPTED FOR CONSIDERATION."
+    },
+    {
+      "id": "authority_d",
+      "name": "No written proof of authority to offer the building",
+      "match": [
+        "authori[sz]"
+      ],
+      "core": false,
+      "pages": [
+        32
+      ],
+      "quote": "will not be considered"
+    },
+    {
+      "id": "vat",
+      "name": "VAT included by a non-VAT vendor",
+      "match": [
+        "\\bvat\\b"
+      ],
+      "core": false,
+      "pages": [
+        10
+      ],
+      "quote": "Inclusion of VAT by non-VAT vendors"
+    },
+    {
+      "id": "functionality",
+      "name": "Failing the minimum functionality",
+      "match": [
+        "functionality"
+      ],
+      "core": false,
+      "pages": [
+        11
+      ],
+      "quote": "Failure to meet minimum functionality may result in the tenderer being disqualified."
+    },
+    {
+      "id": "state",
+      "name": "Bidder or directors in the service of the state",
+      "match": [
+        "service of the state",
+        "state employ",
+        "employed by the state"
+      ],
+      "core": false,
+      "pages": [
+        2,
+        6
+      ],
+      "quote": "NO BIDS WILL BE CONSIDERED FROM PERSONS IN THE SERVICE OF THE STATE"
+    },
+    {
+      "id": "defaulters",
+      "name": "Listed as a tender defaulter / restricted supplier",
+      "match": [
+        "defaulter",
+        "restricted"
+      ],
+      "core": false,
+      "pages": [
+        6
+      ],
+      "quote": "Register for Tender Defaulters"
+    }
+  ],
+  "special_requirements_note": "Expected (not scored): 9 years 11 months lease; 5 parking bays; UPS/solar; 2,500-5,000 L water back-up; NBR/OHS compliance."
+}

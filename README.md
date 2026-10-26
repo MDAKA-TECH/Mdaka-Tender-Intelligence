@@ -64,8 +64,10 @@ python worker.py            # leave running; Ctrl+C to stop
 `python worker.py --once` processes whatever is waiting and exits. `python extract.py file.pdf`
 tests extraction on a local file without Supabase.
 
-**OCR (for scanned tenders):** install Tesseract for Windows from
-https://github.com/UB-Mannheim/tesseract/wiki (default install path is detected automatically).
+**OCR (for scanned tenders):** install Tesseract for Windows, either with
+`winget install -e --id UB-Mannheim.TesseractOCR` or the installer from
+https://github.com/UB-Mannheim/tesseract/wiki (the default install path is detected automatically).
+`evaluate.py` skips scanned tenders (and reports the gate as INCOMPLETE) until it's installed.
 Without it, text PDFs still work; scanned pages are skipped and the file shows a warning.
 
 **Hosting later:** `worker/Dockerfile` includes Tesseract. Deploy it as a background worker on
@@ -117,6 +119,9 @@ deploy, then add the Vercel URL to Supabase's Redirect URLs.
 | --- | --- | --- |
 | RFQ_906_2026.pdf (Parliament, Data Analyst) | 10 | Text (Word export) |
 | RFQ_907_2026.pdf (Parliament, Data Engineer) | 9 | Text (Word export) |
+| Transport Economic Regulator RFQ TER/RFQ2026/27/03 (4 files: RFQ, SBD 4, SBD 6.1, POPIA consent) | 11 + 3 + 5 + 3 | Text |
+| Limpopo DPWRI LDPWRI-P/20675, office accommodation Soekmekaar | 56 | Fully scanned (OCR) |
+| Notice 6 of 2026/27 (City of Tshwane tender advert) | 11 | Mixed; not scored: it lists ~19 tenders, kept for v2 discovery |
 
 Worker results: both read fully from the text layer (about 2,200 words each). A scanned copy of
 RFQ 906 (pages turned into images) was read by OCR with nearly the same word count, at roughly
