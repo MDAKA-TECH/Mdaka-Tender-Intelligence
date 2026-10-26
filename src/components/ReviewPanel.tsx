@@ -4,6 +4,7 @@ import { DOC_TYPES, docTypeInfo, type AiField, type Confidence, type DocType, ty
 import { fmtDate, fmtDateTime } from '../lib/dates';
 import { FIELD_LABEL, KIND_LABEL, fieldValue } from '../lib/fields';
 import { matchVault, type VaultDoc } from '../lib/vault';
+import { ChevronRight } from 'lucide-react';
 import { Modal, useToast } from './ui';
 
 // AI results → a person reviews each item → confirmed items become the checklist.
@@ -136,12 +137,12 @@ export default function ReviewPanel({
         </div>
       </div>
 
-      <div className="tabs" role="tablist" aria-label="Requirements">
-        <button role="tab" aria-selected={tab === 'review'} onClick={() => setTab('review')}>
+      <div className="dtabs" role="tablist" aria-label="Requirements">
+        <button role="tab" data-tone="review" aria-selected={tab === 'review'} onClick={() => setTab('review')}>
           Review {toReview.length > 0 && <span className="count">{toReview.length}</span>}
         </button>
-        <button role="tab" aria-selected={tab === 'checklist'} onClick={() => setTab('checklist')}>
-          Checklist {checklistDocs.length > 0 && <span className="muted small">{checklistDocs.filter((r) => r.status === 'done').length}/{checklistDocs.length}</span>}
+        <button role="tab" data-tone="ready" aria-selected={tab === 'checklist'} onClick={() => setTab('checklist')}>
+          Checklist {checklistDocs.length > 0 && <span className="n">{checklistDocs.filter((r) => r.status === 'done').length}/{checklistDocs.length}</span>}
         </button>
       </div>
 
@@ -176,10 +177,10 @@ export default function ReviewPanel({
             {ai.ai_status === 'done' && ai.ai_fields && (
               <>
                 <div className="section-head">
-                  <h3 className="ai-sub">Key facts</h3>
+                  <h3 className="divider-label" data-tone="cobalt">Key facts</h3>
                   <button className="btn" onClick={() => onFillDetails(prefillFromAi(ai.ai_fields!.fields))}>Fill tender details</button>
                 </div>
-                <div className="table-wrap">
+                <div className="table-wrap" data-tone="cobalt">
                   <table className="ai-table">
                     <tbody>
                       {FIELD_LABEL.map(([name, label]) => {
@@ -205,8 +206,11 @@ export default function ReviewPanel({
               </>
             )}
 
+            {toReview.length > 0 && priority(toReview[0]) === 0 && (
+              <p className="small muted" style={{ margin: 0 }}>Items that need a closer look come first. Open the source page before you confirm them.</p>
+            )}
             <div className="section-head">
-              <h3 className="ai-sub">To review <span className="muted small">({toReview.length})</span></h3>
+              <h3 className="divider-label" data-tone="review">To review <span className="n">{toReview.length}</span></h3>
               {highConfidence.length > 0 && (
                 <button className="btn" onClick={() => update(highConfidence.map((r) => r.id), { confirmed: true }, `${highConfidence.length} confirmed.`)}>
                   Confirm all high-confidence ({highConfidence.length})
@@ -219,10 +223,7 @@ export default function ReviewPanel({
               </p>
             ) : (
               <>
-                {priority(toReview[0]) === 0 && (
-                  <p className="small muted" style={{ margin: 0 }}>Items that need a closer look come first. Open the source page before you confirm them.</p>
-                )}
-                <ul className="req-list">
+                <ul className="req-list" data-tone="review">
                   {toReview.map((r) => (
                     <li key={r.id} className={priority(r) === 0 ? 'attention' : ''}>
                       <ReqText r={r} />
@@ -327,7 +328,7 @@ function Checklist({
   const special = confirmed.filter((r) => r.kind === 'special');
   const matches = new Map(docs.filter((r) => r.doc_type).map((r) => [r.id, matchVault(r.doc_type!, vault, tender.closing_at)]));
   const vaultProblems = [...matches.values()].filter((m) => m.tone !== 'ok').length;
-  const ticked = docs.filter((r) => r.status === 'done').length;
+  const firstProblem = docs.find((r) => matches.get(r.id) && matches.get(r.id)!.tone !== 'ok')?.id;
 
   if (!confirmed.length) {
     return (
@@ -341,23 +342,31 @@ function Checklist({
 
   return (
     <>
-      <div className="check-summary">
-        <div><b className="mono">{ticked}/{docs.length}</b><span>documents prepared</span></div>
-        <div className={vaultProblems ? 'crit-text' : ''}><b className="mono">{vaultProblems}</b><span>vault problem{vaultProblems === 1 ? '' : 's'}</span></div>
-        {unreviewed > 0 && (
-          <button className="btn ghost" onClick={onReview}>{unreviewed} still to review</button>
-        )}
-      </div>
+      {vaultProblems > 0 && (
+        <div className="callout crit notice-row">
+          <span>
+            <b>{vaultProblems} vault document{vaultProblems === 1 ? ' needs' : 's need'} attention</b>
+            Expired, missing, or not valid on the closing date.
+          </span>
+          <button className="btn" onClick={() => document.getElementById(`req-${firstProblem}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' })}>Show</button>
+        </div>
+      )}
+      {unreviewed > 0 && (
+        <div className="callout warn notice-row">
+          <span><b>{unreviewed} item{unreviewed === 1 ? ' is' : 's are'} not reviewed yet</b>They are not on this checklist until you confirm them.</span>
+          <button className="btn" onClick={onReview}>Review</button>
+        </div>
+      )}
       {!tender.closing_at && docs.some((r) => r.doc_type) && (
         <p className="small muted" style={{ margin: 0 }}>Set the closing date in the tender details to check vault documents are still valid on that day.</p>
       )}
 
-      <h3 className="ai-sub">Documents to submit</h3>
-      <ul className="req-list check-list">
+      <h3 className="divider-label" data-tone="ready">Documents to submit <span className="n">{docs.length}</span></h3>
+      <ul className="req-list check-list" data-tone="ready">
         {docs.map((r) => {
           const m = matches.get(r.id);
           return (
-            <li key={r.id} className={r.status === 'done' ? 'ticked' : ''}>
+            <li key={r.id} id={`req-${r.id}`} className={r.status === 'done' ? 'ticked' : ''}>
               <label className="check">
                 <input type="checkbox" checked={r.status === 'done'} disabled={busyIds.has(r.id)} onChange={() => onToggle(r)} />
                 <ReqText r={r} />
@@ -383,8 +392,8 @@ function Checklist({
 
       {disq.length > 0 && (
         <>
-          <h3 className="ai-sub">Avoid disqualification</h3>
-          <ul className="req-list">
+          <h3 className="divider-label" data-tone="crit">Avoid disqualification</h3>
+          <ul className="req-list" data-tone="crit">
             {disq.map((r) => (
               <li key={r.id}>
                 <ReqText r={r} />
@@ -403,8 +412,8 @@ function Checklist({
 
       {special.length > 0 && (
         <>
-          <h3 className="ai-sub">Other requirements</h3>
-          <ul className="req-list">
+          <h3 className="divider-label" data-tone="violet">Other requirements</h3>
+          <ul className="req-list" data-tone="violet">
             {special.map((r) => (
               <li key={r.id}>
                 <ReqText r={r} />
@@ -421,7 +430,7 @@ function Checklist({
 
       {dismissed.length > 0 && (
         <details className="history">
-          <summary>{dismissed.length} marked not required</summary>
+          <summary><ChevronRight className="ico" aria-hidden="true" />{dismissed.length} marked not required</summary>
           <ul>
             {dismissed.map((r) => (
               <li key={r.id}>
@@ -489,7 +498,7 @@ function EditModal({
       <form id="req-form" onSubmit={save} style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
         {item?.quote && (
           <div className="quote-box">
-            <span className="eyebrow">The tender says</span>
+            <span className="quote-label">The tender says</span>
             <q>{item.quote}</q>
           </div>
         )}

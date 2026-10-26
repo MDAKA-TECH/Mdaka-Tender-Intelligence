@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState, type FormEvent } from 'react';
+import { ChevronRight } from 'lucide-react';
 import { friendlyError, supabase } from '../lib/supabase';
 import { DOC_TYPES, docTypeInfo, type Company, type CompanyDocument, type DocType } from '../lib/types';
 import { expiryState, fmtDate, fmtSize } from '../lib/dates';
@@ -7,6 +8,8 @@ import { ExpiryPill, MissingPill, Modal, useToast } from '../components/ui';
 const BUCKET = 'vault';
 const MAX_BYTES = 10 * 1024 * 1024;
 const ACCEPT = ['application/pdf', 'image/jpeg', 'image/png'];
+
+type VaultFilter = 'all' | 'ready' | 'expiring' | 'problem';
 
 interface Slot {
   type: DocType;
@@ -63,6 +66,14 @@ export default function Vault({ company }: { company: Company }) {
     return c;
   }, [slots]);
 
+  const [filter, setFilter] = useState<VaultFilter>('all');
+  const slotState = (s: Slot): VaultFilter => {
+    if (!s.current) return docTypeInfo(s.type).core ? 'problem' : 'all';
+    const st = expiryState(s.current.expires_on);
+    return st === 'expired' ? 'problem' : st === 'expiring' ? 'expiring' : 'ready';
+  };
+  const shownSlots = filter === 'all' ? slots : slots.filter((s) => slotState(s) === filter);
+
   const open = async (d: CompanyDocument) => {
     const { data, error: e } = await supabase.storage.from(BUCKET).createSignedUrl(d.file_path, 60);
     if (e || !data) return toast(friendlyError(e));
@@ -86,25 +97,32 @@ export default function Vault({ company }: { company: Company }) {
 
       {error && <div className="callout crit">{error}</div>}
 
-      {docs && (
-        <div className="vault-summary" aria-label="Vault status">
-          <span className="pill ok">{counts.ready} ready</span>
-          {counts.expiring > 0 && <span className="pill warn">{counts.expiring} expiring within 30 days</span>}
-          {counts.expired > 0 && <span className="pill crit">{counts.expired} expired</span>}
-          {counts.missing > 0 && <span className="pill crit">{counts.missing} core missing</span>}
-        </div>
-      )}
-
       <section className="panel">
         <div className="panel-head">
           <h2>Documents</h2>
           <span className="small muted">PDF, JPG or PNG · up to 10 MB · private to your company</span>
         </div>
+        {docs && (
+          <div className="dtabs" role="tablist" aria-label="Filter by status">
+            {([
+              ['all', 'All', 'slate', slots.length],
+              ['ready', 'Ready', 'ready', counts.ready],
+              ['expiring', 'Expiring soon', 'review', counts.expiring],
+              ['problem', 'Expired or missing', 'crit', counts.expired + counts.missing],
+            ] as [VaultFilter, string, string, number][]).map(([key, label, tone, n]) => (
+              <button key={key} role="tab" data-tone={tone} aria-selected={filter === key} onClick={() => setFilter(key)}>
+                {label} <span className="n">{n}</span>
+              </button>
+            ))}
+          </div>
+        )}
         {!docs ? (
           <p className="panel-body muted">Loading…</p>
+        ) : shownSlots.length === 0 ? (
+          <p className="panel-body muted">Nothing here.</p>
         ) : (
           <ul className="doc-list">
-            {slots.map((s) => {
+            {shownSlots.map((s) => {
               const info = docTypeInfo(s.type);
               const d = s.current;
               return (
@@ -143,7 +161,7 @@ export default function Vault({ company }: { company: Company }) {
                   </div>
                   {s.older.length > 0 && (
                     <details className="history">
-                      <summary>{s.older.length} earlier version{s.older.length > 1 ? 's' : ''}</summary>
+                      <summary><ChevronRight className="ico" aria-hidden="true" />{s.older.length} earlier version{s.older.length > 1 ? 's' : ''}</summary>
                       <ul>
                         {s.older.map((o) => (
                           <li key={o.id}>

@@ -30,7 +30,7 @@ export default function CompanyPage({ company, user }: { company: Company; user:
   };
 
   return (
-    <div className="page" style={{ maxWidth: 720 }}>
+    <div className="page narrow">
       <div className="page-head">
         <div>
           <h1>Company profile</h1>

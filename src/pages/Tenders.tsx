@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState, type FormEvent } from 'react';
+import { ChevronRight, Plus } from 'lucide-react';
 import { friendlyError, supabase } from '../lib/supabase';
-import { ACTIVE_STATUSES, TENDER_STATUS_LABEL, docTypeInfo, type Company, type Tender, type TenderStatus } from '../lib/types';
+import { ACTIVE_STATUSES, STATUS_TONE, TENDER_STATUS_LABEL, docTypeInfo, type Tone, type Company, type Tender, type TenderStatus } from '../lib/types';
 import { EXPIRING_DAYS, closingIn, daysUntil, fmtDateTime, fmtSize, fromLocalInput } from '../lib/dates';
 import type { VaultDoc } from '../lib/vault';
 import { checkPdf, uploadTenderFiles } from '../lib/tenderFiles';
@@ -12,13 +13,13 @@ interface Row extends Tender {
 }
 
 type Tab = 'active' | 'submitted' | 'won' | 'lost' | 'not_bidding' | 'all';
-const TABS: { tab: Tab; label: string; match: (s: TenderStatus) => boolean }[] = [
-  { tab: 'active', label: 'Active', match: (s) => ACTIVE_STATUSES.includes(s) },
-  { tab: 'submitted', label: 'Submitted', match: (s) => s === 'submitted' },
-  { tab: 'won', label: 'Won', match: (s) => s === 'won' },
-  { tab: 'lost', label: 'Lost', match: (s) => s === 'lost' },
-  { tab: 'not_bidding', label: 'Not bidding', match: (s) => s === 'not_bidding' },
-  { tab: 'all', label: 'All', match: () => true },
+const TABS: { tab: Tab; label: string; tone: Tone; match: (s: TenderStatus) => boolean }[] = [
+  { tab: 'active', label: 'Active', tone: 'cobalt', match: (s) => ACTIVE_STATUSES.includes(s) },
+  { tab: 'submitted', label: 'Submitted', tone: 'violet', match: (s) => s === 'submitted' },
+  { tab: 'won', label: 'Won', tone: 'ready', match: (s) => s === 'won' },
+  { tab: 'lost', label: 'Lost', tone: 'slate', match: (s) => s === 'lost' },
+  { tab: 'not_bidding', label: 'Not bidding', tone: 'slate', match: (s) => s === 'not_bidding' },
+  { tab: 'all', label: 'All', tone: 'slate', match: () => true },
 ];
 const TAB_KEY = 'ti.tenders.tab';
 
@@ -73,7 +74,7 @@ export default function Tenders({ company, onOpen, onOpenVault }: { company: Com
           <h1>Tenders</h1>
           <p>Upload a tender pack to start. Each PDF is read page by page so its requirements can be pulled out.</p>
         </div>
-        <button className="btn primary" onClick={() => setCreating(true)}>New tender</button>
+        <button className="btn primary" onClick={() => setCreating(true)}><Plus className="ico" aria-hidden="true" />New tender</button>
       </div>
 
       {error && <div className="callout crit">{error}</div>}
@@ -91,24 +92,27 @@ export default function Tenders({ company, onOpen, onOpenVault }: { company: Com
           </div>
         ) : (
           <>
+            <div className="panel-head">
+              <h2>Your tenders</h2>
+              <input className="input search" type="search" placeholder="Search reference, issuer or description" value={q} onChange={(e) => setQ(e.target.value)} aria-label="Search tenders" />
+            </div>
             <div className="list-tools">
-              <div className="tabs flat" role="tablist" aria-label="Filter by status">
+              <div className="dtabs" role="tablist" aria-label="Filter by status">
                 {TABS.map((t) => {
                   const n = rows.filter((r) => t.match(r.status)).length;
                   return (
-                    <button key={t.tab} role="tab" aria-selected={tab === t.tab} onClick={() => pickTab(t.tab)}>
+                    <button key={t.tab} role="tab" data-tone={t.tone} aria-selected={tab === t.tab} onClick={() => pickTab(t.tab)}>
                       {t.label} <span className="n">{n}</span>
                     </button>
                   );
                 })}
               </div>
-              <input className="input search" type="search" placeholder="Search reference, issuer or description" value={q} onChange={(e) => setQ(e.target.value)} aria-label="Search tenders" />
             </div>
             {shown.length === 0 ? (
               <p className="panel-body muted">{q ? 'No tenders match your search.' : 'No tenders with this status.'}</p>
             ) : (
               <div className="table-wrap">
-                <table>
+                <table className="tender-table">
                   <thead>
                     <tr>
                       <th>Tender</th>
@@ -129,18 +133,21 @@ export default function Tenders({ company, onOpen, onOpenVault }: { company: Com
                       const briefingSoon = active && t.briefing_at && new Date(t.briefing_at).getTime() > Date.now() && t.briefing_compulsory !== false;
                       return (
                         <tr key={t.id} className="clickable" onClick={() => onOpen(t.id)}>
-                          <td>
+                          <td className="c-tender">
                             <button className="row-link" onClick={(e) => { e.stopPropagation(); onOpen(t.id); }}>
                               {t.reference_no || 'Untitled tender'}
                             </button>
                             {t.description && <div className="small muted clamp">{t.description}</div>}
                           </td>
-                          <td>{t.entity || <span className="muted">—</span>}</td>
-                          <td>
+                          <td className="c-issuer">{t.entity || <span className="muted">—</span>}</td>
+                          <td className="c-closing">
                             {t.closing_at ? (
                               <>
-                                <div className="mono">{fmtDateTime(t.closing_at)}</div>
-                                {active && !closed && <span className={`pill ${c!.tone}`}>{c!.label}</span>}
+                                <div className="cell-stack">
+                                  <span className="mono">{fmtDateTime(t.closing_at)}</span>
+                                  {active && !closed && <span className={`pill ${c!.tone}`}>{c!.label}</span>}
+                                  {closed && <span className="pill warn">Closed: update status</span>}
+                                </div>
                               </>
                             ) : (
                               <span className="muted">Not set</span>
@@ -151,16 +158,15 @@ export default function Tenders({ company, onOpen, onOpenVault }: { company: Com
                               </div>
                             )}
                           </td>
-                          <td className="mono">
+                          <td className="mono c-files">
                             {done}/{t.tender_files.length} read
                             {failed > 0 && <div><span className="pill crit">{failed} failed</span></div>}
                           </td>
-                          <td><ChecklistCell reqs={t.requirements} /></td>
-                          <td>
-                            <span className={`pill ${t.status === 'won' ? 'ok' : t.status === 'lost' || t.status === 'not_bidding' ? 'plain' : 'accent'}`}>
-                              {TENDER_STATUS_LABEL[t.status]}
-                            </span>
-                            {closed && <div><span className="pill warn">Closed: update status</span></div>}
+                          <td className="c-check"><ChecklistCell reqs={t.requirements} /></td>
+                          <td className="c-status">
+                            <div className="cell-stack">
+                              <span className="stab" data-tone={STATUS_TONE[t.status]}>{TENDER_STATUS_LABEL[t.status]}</span>
+                            </div>
                           </td>
                         </tr>
                       );
@@ -250,6 +256,7 @@ function ComingUp({ rows, vault, onOpen, onOpenVault }: { rows: Row[]; vault: Va
                 <span className="mono when">{fmtShort(i.at, i.what.startsWith('Expir'))}</span>
                 <span className={`pill ${i.tone}`}>{i.what}</span>
                 <span className="name">{i.name}</span>
+                <ChevronRight className="ico go" aria-hidden="true" />
               </button>
             </li>
           ))}

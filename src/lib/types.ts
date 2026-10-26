@@ -86,6 +86,17 @@ export interface Tender {
 
 export const ACTIVE_STATUSES: TenderStatus[] = ['reviewing', 'preparing'];
 
+// Each status keeps one divider colour everywhere (see styles.css).
+export type Tone = 'review' | 'ready' | 'crit' | 'cobalt' | 'violet' | 'slate';
+export const STATUS_TONE: Record<TenderStatus, Tone> = {
+  reviewing: 'review',
+  preparing: 'cobalt',
+  submitted: 'violet',
+  won: 'ready',
+  lost: 'slate',
+  not_bidding: 'slate',
+};
+
 // ---------------------------------------------------------------- reminders + activity (week 5)
 export type ReminderKind = 'briefing' | 'closing' | 'query_deadline' | 'doc_expiry';
 

@@ -1,7 +1,9 @@
 import { useCallback, useEffect, useMemo, useState, type FormEvent } from 'react';
+import { ArrowLeft, CalendarClock, ChevronLeft, ChevronRight, FileDown, ListChecks, Send, Trash2, Users } from 'lucide-react';
 import { friendlyError, supabase } from '../lib/supabase';
-import { ACTIVE_STATUSES, TENDER_STATUS_LABEL, type AppUser, type AuditEntry, type Company, type PageText, type Reminder, type Requirement, type Tender, type TenderAi, type TenderFile, type TenderStatus } from '../lib/types';
+import { ACTIVE_STATUSES, STATUS_TONE, TENDER_STATUS_LABEL, type AppUser, type AuditEntry, type Company, type PageText, type Reminder, type Requirement, type Tender, type TenderAi, type TenderFile, type TenderStatus } from '../lib/types';
 import ReviewPanel, { type DetailsPrefill } from '../components/ReviewPanel';
+import { fieldValue } from '../lib/fields';
 import type { VaultDoc } from '../lib/vault';
 import { closingIn, fmtDateTime, fmtSize, fromLocalInput, toLocalInput } from '../lib/dates';
 import { TENDER_BUCKET, checkPdf, uploadTenderFiles } from '../lib/tenderFiles';
@@ -165,113 +167,120 @@ export default function TenderDetail({ id, company, user, onBack, onOpenVault }:
   if (error)
     return (
       <div className="page">
-        <button className="btn ghost back" onClick={onBack}>← Tenders</button>
+        <button className="btn ghost back" onClick={onBack}><ArrowLeft className="ico" aria-hidden="true" />Tenders</button>
         <div className="callout crit">{error}</div>
       </div>
     );
   if (!tender || !files) return <div className="page"><p className="muted">Loading…</p></div>;
 
   const c = tender.closing_at ? closingIn(tender.closing_at) : null;
+  const docsFirst = reqs.length === 0;
+  const documentsPanel = (
+    <section className="panel">
+      <div className="panel-head">
+        <h2>Documents</h2>
+        <label className={`btn ${uploading ? 'disabled' : ''}`}>
+          {uploading ? 'Uploading…' : 'Add PDFs'}
+          <input type="file" accept=".pdf,application/pdf" multiple hidden disabled={uploading} onChange={(e) => { addFiles(e.target.files); e.target.value = ''; }} />
+        </label>
+      </div>
+      {stuck && (
+        <div className="callout warn" style={{ margin: 16, marginBottom: 0 }}>
+          <b>Files are waiting for the extraction worker</b>
+          Start it on your computer with <span className="mono">python worker.py</span> in the <span className="mono">worker</span> folder.
+        </div>
+      )}
+      {files.length === 0 ? (
+        <p className="panel-body muted">No PDFs yet. Add the tender document and its annexures.</p>
+      ) : (
+        <ul className="doc-list">
+          {files.map((f) => (
+            <li key={f.id}>
+              <div className="what">
+                <b className="file" title={f.file_name}>{f.file_name}</b>
+                <div className="meta">
+                  {f.file_size != null && <span>{fmtSize(f.file_size)}</span>}
+                  {f.page_count != null && <span>{f.page_count} pages</span>}
+                  {f.ocr_pages.length > 0 && <span>OCR on {f.ocr_pages.length === f.page_count ? 'all pages' : `p. ${f.ocr_pages.join(', ')}`}</span>}
+                  <span>Uploaded {fmtDateTime(f.created_at)}</span>
+                </div>
+                {f.error && <div className={`small ${f.status === 'failed' ? 'crit-text' : 'warn-text'}`}>{f.error}</div>}
+              </div>
+              <div className="actions">
+                <ExtractionPill status={f.status} />
+                {f.status === 'done' && <button className="btn" onClick={() => setViewing({ file: f })}>View text</button>}
+                {f.status === 'failed' && <button className="btn" onClick={() => retry(f)}>Retry</button>}
+                <button className="btn" onClick={() => openPdf(f)}>Open PDF</button>
+                <button className="btn danger" onClick={() => setRemovingFile(f)}>Delete</button>
+              </div>
+            </li>
+          ))}
+        </ul>
+      )}
+      {totals.done > 0 && (
+        <div className="panel-foot small muted">
+          {totals.pages} pages read from {totals.done} file{totals.done > 1 ? 's' : ''}
+          {totals.ocr > 0 && `, ${totals.ocr} by OCR`}.
+        </div>
+      )}
+    </section>
+  );
   return (
     <div className="page">
-      <button className="btn ghost back" onClick={onBack}>← Tenders</button>
+      <button className="btn ghost back" onClick={onBack}><ArrowLeft className="ico" aria-hidden="true" />Tenders</button>
       <div className="page-head">
-        <div>
-          <h1>{tender.reference_no || 'Untitled tender'}</h1>
-          <p>
-            {[tender.entity, tender.description].filter(Boolean).join(' · ') || 'Add the details below.'}
-            {c && ['reviewing', 'preparing'].includes(tender.status) && <> <span className={`pill ${c.tone}`}>{c.label}</span></>}
-          </p>
+        <div className="title-block">
+          <div className="title-row">
+            <h1>{tender.reference_no || 'Untitled tender'}</h1>
+            <span className="stab big" data-tone={STATUS_TONE[tender.status]}>{TENDER_STATUS_LABEL[tender.status]}</span>
+          </div>
+          <p>{[tender.entity, tender.description].filter(Boolean).join(' · ') || 'Add the details on the right.'}</p>
         </div>
         <div className="head-actions">
           <label className="status-pick">
-            <span className="small muted">Status</span>
+            <span>Change status</span>
             <select className="select" value={tender.status} disabled={savingStatus} onChange={(e) => changeStatus(e.target.value as TenderStatus)} aria-label="Tender status">
               {(Object.keys(TENDER_STATUS_LABEL) as TenderStatus[]).map((s) => <option key={s} value={s}>{TENDER_STATUS_LABEL[s]}</option>)}
             </select>
           </label>
-          <button className="btn" onClick={exportPdf} disabled={exporting}>{exporting ? 'Preparing PDF…' : 'Export PDF'}</button>
-          <button className="btn danger" onClick={() => setRemovingTender(true)}>Delete tender</button>
+          <button className="btn" onClick={exportPdf} disabled={exporting}><FileDown className="ico" aria-hidden="true" />{exporting ? 'Preparing PDF…' : 'Export PDF'}</button>
+          <button className="btn danger" onClick={() => setRemovingTender(true)}><Trash2 className="ico" aria-hidden="true" />Delete</button>
         </div>
       </div>
 
-      <div className="grid g-3-1">
-        <section className="panel">
-          <div className="panel-head">
-            <h2>Documents</h2>
-            <label className={`btn ${uploading ? 'disabled' : ''}`}>
-              {uploading ? 'Uploading…' : 'Add PDFs'}
-              <input type="file" accept=".pdf,application/pdf" multiple hidden disabled={uploading} onChange={(e) => { addFiles(e.target.files); e.target.value = ''; }} />
-            </label>
-          </div>
-          {stuck && (
-            <div className="callout warn" style={{ margin: 16, marginBottom: 0 }}>
-              <b>Files are waiting for the extraction worker</b>
-              Start it on your computer with <span className="mono">python worker.py</span> in the <span className="mono">worker</span> folder.
-            </div>
-          )}
-          {files.length === 0 ? (
-            <p className="panel-body muted">No PDFs yet. Add the tender document and its annexures.</p>
-          ) : (
-            <ul className="doc-list">
-              {files.map((f) => (
-                <li key={f.id}>
-                  <div className="what">
-                    <b className="file" title={f.file_name}>{f.file_name}</b>
-                    <div className="meta">
-                      {f.file_size != null && <span>{fmtSize(f.file_size)}</span>}
-                      {f.page_count != null && <span>{f.page_count} pages</span>}
-                      {f.ocr_pages.length > 0 && <span>OCR on {f.ocr_pages.length === f.page_count ? 'all pages' : `p. ${f.ocr_pages.join(', ')}`}</span>}
-                      <span>Uploaded {fmtDateTime(f.created_at)}</span>
-                    </div>
-                    {f.error && <div className={`small ${f.status === 'failed' ? 'crit-text' : 'warn-text'}`}>{f.error}</div>}
-                  </div>
-                  <div className="actions">
-                    <ExtractionPill status={f.status} />
-                    {f.status === 'done' && <button className="btn" onClick={() => setViewing({ file: f })}>View text</button>}
-                    {f.status === 'failed' && <button className="btn" onClick={() => retry(f)}>Retry</button>}
-                    <button className="btn" onClick={() => openPdf(f)}>Open PDF</button>
-                    <button className="btn danger" onClick={() => setRemovingFile(f)}>Delete</button>
-                  </div>
-                </li>
-              ))}
-            </ul>
-          )}
-          {totals.done > 0 && (
-            <div className="panel-foot small muted">
-              {totals.pages} pages read from {totals.done} file{totals.done > 1 ? 's' : ''}
-              {totals.ocr > 0 && `, ${totals.ocr} by OCR`}.
-            </div>
-          )}
-        </section>
+      <DeadlineBand tender={tender} ai={ai} reqs={reqs} closing={c} />
 
+      <div className="grid g-3-1">
+        <div className="main-col">
+          {docsFirst && documentsPanel}
+          {ai && (
+            <ReviewPanel
+              tender={tender}
+              ai={ai}
+              reqs={reqs}
+              files={files}
+              vault={vault}
+              onRun={runAi}
+              onChanged={loadReqs}
+              onOpenVault={onOpenVault}
+              onFillDetails={(p) => {
+                setPrefill({ p, key: Date.now() });
+                document.getElementById('details-form')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+              }}
+              onOpenSource={(fileId, page, quote) => {
+                const f = files.find((x) => x.id === fileId);
+                if (f && f.status === 'done') setViewing({ file: f, page: page ?? undefined, query: quote ?? undefined });
+                else toast('That file is no longer available.');
+              }}
+            />
+          )}
+          {!docsFirst && documentsPanel}
+        </div>
         <div className="side-col">
           <DetailsForm tender={tender} prefill={prefill} onSaved={(t) => { setTender(t); setPrefill(null); setRev((n) => n + 1); toast('Details saved.'); }} />
           <RemindersCard tender={tender} user={user} rev={rev} />
         </div>
       </div>
-
-      {ai && (
-        <ReviewPanel
-          tender={tender}
-          ai={ai}
-          reqs={reqs}
-          files={files}
-          vault={vault}
-          onRun={runAi}
-          onChanged={loadReqs}
-          onOpenVault={onOpenVault}
-          onFillDetails={(p) => {
-            setPrefill({ p, key: Date.now() });
-            document.getElementById('details-form')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-          }}
-          onOpenSource={(fileId, page, quote) => {
-            const f = files.find((x) => x.id === fileId);
-            if (f && f.status === 'done') setViewing({ file: f, page: page ?? undefined, query: quote ?? undefined });
-            else toast('That file is no longer available.');
-          }}
-        />
-      )}
 
       <Activity tenderId={tender.id} rev={rev} />
 
@@ -397,8 +406,16 @@ function DetailsForm({ tender, prefill, onSaved }: { tender: Tender; prefill: { 
         <label className="field"><span>Reference number</span><input className="input" value={ref} onChange={(e) => setRef(e.target.value)} maxLength={80} /></label>
         <label className="field"><span>Issued by</span><input className="input" value={entity} onChange={(e) => setEntity(e.target.value)} maxLength={200} /></label>
         <label className="field"><span>Short description</span><input className="input" value={desc} onChange={(e) => setDesc(e.target.value)} maxLength={300} /></label>
-        <label className="field"><span>Closing date and time</span><input className="input" type="datetime-local" value={closing} onChange={(e) => setClosing(e.target.value)} /></label>
-        <label className="field"><span>Briefing session</span><input className="input" type="datetime-local" value={briefing} onChange={(e) => setBriefing(e.target.value)} /></label>
+        <label className="field">
+          <span>Closing date and time</span>
+          <input className="input" type="datetime-local" value={closing} onChange={(e) => setClosing(e.target.value)} />
+          {closing && <span className="hint echo">{fmtLong(closing)}</span>}
+        </label>
+        <label className="field">
+          <span>Briefing session</span>
+          <input className="input" type="datetime-local" value={briefing} onChange={(e) => setBriefing(e.target.value)} />
+          {briefing && <span className="hint echo">{fmtLong(briefing)}</span>}
+        </label>
         <label className="field">
           <span>Briefing compulsory?</span>
           <select className="select" value={compulsory} onChange={(e) => setCompulsory(e.target.value)}>
@@ -411,6 +428,66 @@ function DetailsForm({ tender, prefill, onSaved }: { tender: Tender; prefill: { 
         <div><button className="btn primary" type="submit" disabled={busy}>{busy ? 'Saving…' : 'Save details'}</button></div>
       </div>
     </form>
+  );
+}
+
+// ---------------------------------------------------------------- deadline band
+
+const fmtWhen = (iso: string) =>
+  new Date(iso).toLocaleString('en-ZA', { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+
+const TONE_OF: Record<string, string> = { crit: 'crit', warn: 'review', ok: 'ready', plain: 'slate' };
+
+// "7 days left", "Tomorrow", "Closes in 5 h", "Closed"
+function countdown(iso: string, now = new Date()): string {
+  const ms = new Date(iso).getTime() - now.getTime();
+  if (ms <= 0) return 'Closed';
+  const hours = ms / 3_600_000;
+  if (hours < 24) return `${Math.max(1, Math.round(hours))} h left`;
+  const days = Math.floor(hours / 24);
+  return days === 1 ? '1 day left' : `${days} days left`;
+}
+
+const fmtLong = (local: string) =>
+  new Date(local).toLocaleString('en-ZA', { weekday: 'short', day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+
+function DeadlineBand({ tender, ai, reqs, closing }: { tender: Tender; ai: TenderAi | null; reqs: Requirement[]; closing: ReturnType<typeof closingIn> | null }) {
+  const active = ACTIVE_STATUSES.includes(tender.status);
+  const briefing = tender.briefing_at ? closingIn(tender.briefing_at) : null;
+  const sub = ai?.ai_fields?.fields?.submission;
+  const submission = sub ? fieldValue('submission', sub) : tender.submission_method ?? '';
+  const [method, ...rest] = submission.split(': ');
+  const docs = reqs.filter((r) => r.confirmed && r.status !== 'not_applicable' && r.kind !== 'disqualifier' && r.kind !== 'special');
+  const ticked = docs.filter((r) => r.status === 'done').length;
+  const toReview = reqs.filter((r) => !r.confirmed).length;
+  return (
+    <section className="panel deadline-band" aria-label="Key dates">
+      <div className="closing" data-tone={active && closing ? TONE_OF[closing.tone] : undefined}>
+        <span className="label"><CalendarClock className="ico" aria-hidden="true" />Closing</span>
+        <span className="countdown">{!tender.closing_at ? 'Not set' : active ? countdown(tender.closing_at) : TENDER_STATUS_LABEL[tender.status]}</span>
+        <span className="sub">{tender.closing_at ? fmtWhen(tender.closing_at) : 'Add the closing date under Details.'}</span>
+      </div>
+      <div>
+        <span className="label"><Users className="ico" aria-hidden="true" />Briefing</span>
+        <span className="big">{tender.briefing_at ? fmtWhen(tender.briefing_at) : tender.briefing_compulsory === false ? 'Not compulsory' : 'None recorded'}</span>
+        <span className="sub">
+          {tender.briefing_at ? (tender.briefing_compulsory ? 'Compulsory' : tender.briefing_compulsory === false ? 'Optional' : 'Check whether it is compulsory') : '\u00a0'}
+          {tender.briefing_at && active && briefing && briefing.tone !== 'plain' ? ` · ${briefing.label}` : ''}
+        </span>
+      </div>
+      <div>
+        <span className="label"><Send className="ico" aria-hidden="true" />Submission</span>
+        <span className="big">{method || 'Not known yet'}</span>
+        <span className="sub">{rest.join(': ') || '\u00a0'}</span>
+      </div>
+      <div>
+        <span className="label"><ListChecks className="ico" aria-hidden="true" />Checklist</span>
+        <span className="big">{docs.length ? `${ticked} of ${docs.length} prepared` : 'Not started'}</span>
+        <span className="sub">
+          {toReview > 0 ? <span className="warn-text">{toReview} item{toReview > 1 ? 's' : ''} to review</span> : docs.length ? <span className="meter" style={{ display: 'block', marginTop: 6 }}><i style={{ transform: `scaleX(${ticked / docs.length})` }} /></span> : 'Confirm items under Requirements.'}
+        </span>
+      </div>
+    </section>
   );
 }
 
@@ -516,7 +593,7 @@ function Activity({ tenderId, rev }: { tenderId: string; rev: number }) {
   if (!rows || rows.length === 0) return null;
   return (
     <details className="panel activity">
-      <summary className="panel-head"><h2>Activity</h2><span className="small muted">{rows.length} change{rows.length > 1 ? 's' : ''} by your team</span></summary>
+      <summary className="panel-head"><h2><ChevronRight className="ico" aria-hidden="true" />Activity</h2><span className="small muted">{rows.length} change{rows.length > 1 ? 's' : ''} by your team</span></summary>
       <ul className="activity-list">
         {rows.map((a) => (
           <li key={a.id}>
@@ -564,9 +641,9 @@ function TextViewer({ file, initialPage, initialQuery, onClose }: { file: Tender
       ) : (
         <div className="viewer">
           <div className="toolbar">
-            <button className="btn" onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={page <= 1}>←</button>
+            <button className="btn" onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={page <= 1} aria-label="Previous page"><ChevronLeft className="ico" aria-hidden="true" /></button>
             <span className="mono">Page {page} / {max}</span>
-            <button className="btn" onClick={() => setPage((p) => Math.min(max, p + 1))} disabled={page >= max}>→</button>
+            <button className="btn" onClick={() => setPage((p) => Math.min(max, p + 1))} disabled={page >= max} aria-label="Next page"><ChevronRight className="ico" aria-hidden="true" /></button>
             {current?.ocr && <span className="pill warn">OCR: check against the PDF</span>}
             <input className="input search" placeholder="Find, e.g. SBD 4" value={q} onChange={(e) => setQ(e.target.value)} aria-label="Find in text" />
           </div>

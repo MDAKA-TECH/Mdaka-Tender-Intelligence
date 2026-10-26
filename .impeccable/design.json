@@ -1,0 +1,790 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-10-26T11:08:49+00:00",
+  "title": "Design System: Tender Intelligence",
+  "extensions": {
+    "colorMeta": {
+      "spine": {
+        "role": "primary",
+        "displayName": "Binder Navy",
+        "canonical": "#1a2a5e",
+        "oklch": "oklch(30.4% 0.095 268)",
+        "tonalRamp": [
+          "#030821",
+          "#162243",
+          "#2e3d68",
+          "#485b8f",
+          "#657bb4",
+          "#899dd1",
+          "#b1c3f0",
+          "#e8eeff"
+        ],
+        "dark": "#0a0f22"
+      },
+      "spine-hi": {
+        "role": "primary",
+        "displayName": "Spine Hover",
+        "canonical": "#233670",
+        "oklch": "oklch(35.1% 0.103 267)",
+        "tonalRamp": [
+          "#030823",
+          "#152146",
+          "#2c3d6b",
+          "#465b93",
+          "#637bb8",
+          "#879dd5",
+          "#afc3f4",
+          "#e8eefe"
+        ],
+        "dark": "#141c3a"
+      },
+      "spine-ink": {
+        "role": "neutral",
+        "displayName": "Spine Ink",
+        "canonical": "#c9d3f0",
+        "oklch": "oklch(86.8% 0.042 270)",
+        "tonalRamp": [
+          "#080b15",
+          "#1f2332",
+          "#393f52",
+          "#555d74",
+          "#747d96",
+          "#969eb5",
+          "#bdc4d8",
+          "#e8eeff"
+        ],
+        "dark": "#aab5d6"
+      },
+      "spine-line": {
+        "role": "neutral",
+        "displayName": "Spine Rule",
+        "canonical": "#2c3f7c",
+        "oklch": "oklch(38.6% 0.106 268)",
+        "tonalRamp": [
+          "#030824",
+          "#152147",
+          "#2d3d6c",
+          "#465a95",
+          "#637aba",
+          "#879dd6",
+          "#afc3f5",
+          "#e8eeff"
+        ],
+        "dark": "#1d2648"
+      },
+      "ground": {
+        "role": "neutral",
+        "displayName": "Bond Paper",
+        "canonical": "#edf0f6",
+        "oklch": "oklch(95.5% 0.009 265)",
+        "tonalRamp": [
+          "#090b0f",
+          "#222428",
+          "#3d4044",
+          "#5b5e63",
+          "#7b7d83",
+          "#9c9ea4",
+          "#c1c4ca",
+          "#ebeef4"
+        ],
+        "dark": "#0d111d"
+      },
+      "sheet": {
+        "role": "neutral",
+        "displayName": "Sheet White",
+        "canonical": "#ffffff",
+        "oklch": "oklch(100.0% 0.000 90)",
+        "tonalRamp": [
+          "#0b0b0b",
+          "#242424",
+          "#404040",
+          "#5d5d5d",
+          "#7d7d7d",
+          "#9e9e9e",
+          "#c4c4c4",
+          "#eeeeee"
+        ],
+        "dark": "#151a29"
+      },
+      "sunken": {
+        "role": "neutral",
+        "displayName": "Sunken Paper",
+        "canonical": "#f3f5f9",
+        "oklch": "oklch(97.0% 0.006 265)",
+        "tonalRamp": [
+          "#0a0b0e",
+          "#232427",
+          "#3e4043",
+          "#5c5e61",
+          "#7b7d81",
+          "#9d9ea2",
+          "#c2c4c8",
+          "#eceef2"
+        ],
+        "dark": "#1b2133"
+      },
+      "ink": {
+        "role": "neutral",
+        "displayName": "File Ink",
+        "canonical": "#131a2a",
+        "oklch": "oklch(21.9% 0.033 266)",
+        "tonalRamp": [
+          "#080b13",
+          "#1f242f",
+          "#39404e",
+          "#555e6f",
+          "#747d91",
+          "#969eb0",
+          "#bdc4d4",
+          "#e8effc"
+        ],
+        "dark": "#e7eaf3"
+      },
+      "ink-2": {
+        "role": "neutral",
+        "displayName": "Ink Secondary",
+        "canonical": "#2e3850",
+        "oklch": "oklch(34.3% 0.044 267)",
+        "tonalRamp": [
+          "#070b16",
+          "#1d2433",
+          "#373f53",
+          "#535d75",
+          "#727d97",
+          "#949eb6",
+          "#bbc4d9",
+          "#e8effe"
+        ],
+        "dark": "#c3c9d8"
+      },
+      "muted": {
+        "role": "neutral",
+        "displayName": "Muted Ink",
+        "canonical": "#5a6478",
+        "oklch": "oklch(50.2% 0.034 264)",
+        "tonalRamp": [
+          "#070b13",
+          "#1e2430",
+          "#38404f",
+          "#555e70",
+          "#737d91",
+          "#959fb1",
+          "#bcc4d4",
+          "#e8effc"
+        ],
+        "dark": "#9aa3b9"
+      },
+      "line": {
+        "role": "neutral",
+        "displayName": "Hairline",
+        "canonical": "#dfe3ec",
+        "oklch": "oklch(91.5% 0.013 267)",
+        "tonalRamp": [
+          "#090b11",
+          "#21242a",
+          "#3d4047",
+          "#5a5e65",
+          "#7a7d85",
+          "#9b9ea7",
+          "#c0c4cd",
+          "#eaeef8"
+        ],
+        "dark": "#262d42"
+      },
+      "line-strong": {
+        "role": "neutral",
+        "displayName": "Strong Hairline",
+        "canonical": "#c4cbda",
+        "oklch": "oklch(84.1% 0.022 266)",
+        "tonalRamp": [
+          "#090b11",
+          "#20242c",
+          "#3b4049",
+          "#585e6a",
+          "#777d8a",
+          "#999eaa",
+          "#bfc4cf",
+          "#eaeef7"
+        ],
+        "dark": "#364061"
+      },
+      "cobalt": {
+        "role": "primary",
+        "displayName": "Cobalt Divider",
+        "canonical": "#2a52cf",
+        "oklch": "oklch(49.2% 0.198 266)",
+        "tonalRamp": [
+          "#010039",
+          "#061764",
+          "#173392",
+          "#2b51c3",
+          "#4673ec",
+          "#729afb",
+          "#abc4fa",
+          "#e7effe"
+        ],
+        "dark": "#7d9cff"
+      },
+      "cobalt-ink": {
+        "role": "primary",
+        "displayName": "Cobalt Ink",
+        "canonical": "#1f43b0",
+        "oklch": "oklch(43.1% 0.178 265)",
+        "tonalRamp": [
+          "#010134",
+          "#071a5d",
+          "#1a378a",
+          "#2f54b9",
+          "#4b76e1",
+          "#719afb",
+          "#aac4fa",
+          "#e7effe"
+        ],
+        "dark": "#9db4ff"
+      },
+      "cobalt-soft": {
+        "role": "primary",
+        "displayName": "Cobalt Tint",
+        "canonical": "#e2e9fd",
+        "oklch": "oklch(93.5% 0.028 270)",
+        "tonalRamp": [
+          "#090b12",
+          "#20242e",
+          "#3b3f4c",
+          "#585d6d",
+          "#777d8e",
+          "#999eae",
+          "#bfc4d1",
+          "#eaeef9"
+        ],
+        "dark": "#1a2550"
+      },
+      "review": {
+        "role": "secondary",
+        "displayName": "Marigold Divider",
+        "canonical": "#f2b400",
+        "oklch": "oklch(80.6% 0.165 83)",
+        "tonalRamp": [
+          "#140900",
+          "#302100",
+          "#513c09",
+          "#765814",
+          "#9e7614",
+          "#c79519",
+          "#e8bd67",
+          "#ffecca"
+        ],
+        "dark": "#f5c542"
+      },
+      "review-on": {
+        "role": "secondary",
+        "displayName": "Marigold On-fill",
+        "canonical": "#2b2000",
+        "oklch": "oklch(25.0% 0.051 90)",
+        "tonalRamp": [
+          "#100a01",
+          "#2b230f",
+          "#483f26",
+          "#685d3f",
+          "#887c5c",
+          "#a99e81",
+          "#cdc4aa",
+          "#f6eed9"
+        ],
+        "dark": "#2b2000"
+      },
+      "review-ink": {
+        "role": "secondary",
+        "displayName": "Marigold Ink",
+        "canonical": "#7a5300",
+        "oklch": "oklch(47.3% 0.099 77)",
+        "tonalRamp": [
+          "#150800",
+          "#322000",
+          "#573900",
+          "#7a5615",
+          "#9c7636",
+          "#bb9862",
+          "#debf92",
+          "#feecd1"
+        ],
+        "dark": "#f5c542"
+      },
+      "review-soft": {
+        "role": "secondary",
+        "displayName": "Marigold Tint",
+        "canonical": "#fdf2cf",
+        "oklch": "oklch(96.1% 0.047 93)",
+        "tonalRamp": [
+          "#0f0b01",
+          "#292411",
+          "#473f28",
+          "#665d41",
+          "#867d5f",
+          "#a79e83",
+          "#cbc4ac",
+          "#f4eedb"
+        ],
+        "dark": "#3a2f0e"
+      },
+      "ready": {
+        "role": "secondary",
+        "displayName": "Emerald Divider",
+        "canonical": "#13805a",
+        "oklch": "oklch(53.3% 0.110 163)",
+        "tonalRamp": [
+          "#001006",
+          "#022c1c",
+          "#014c33",
+          "#076f4d",
+          "#34916b",
+          "#65b18e",
+          "#96d4b6",
+          "#cafce3"
+        ],
+        "dark": "#3fbf88"
+      },
+      "ready-ink": {
+        "role": "secondary",
+        "displayName": "Emerald Ink",
+        "canonical": "#0d6545",
+        "oklch": "oklch(45.0% 0.094 162)",
+        "tonalRamp": [
+          "#001006",
+          "#002c1b",
+          "#0b4c33",
+          "#256d4e",
+          "#458e6d",
+          "#70ae90",
+          "#9ed2b7",
+          "#d0fae4"
+        ],
+        "dark": "#5ed39f"
+      },
+      "ready-soft": {
+        "role": "secondary",
+        "displayName": "Emerald Tint",
+        "canonical": "#dcf2e7",
+        "oklch": "oklch(94.2% 0.027 164)",
+        "tonalRamp": [
+          "#060d09",
+          "#1c2722",
+          "#35443d",
+          "#51625a",
+          "#708279",
+          "#92a39b",
+          "#b9c8c1",
+          "#e6f2ec"
+        ],
+        "dark": "#11301f"
+      },
+      "crit": {
+        "role": "secondary",
+        "displayName": "Vermilion Divider",
+        "canonical": "#c9361f",
+        "oklch": "oklch(55.5% 0.187 32)",
+        "tonalRamp": [
+          "#230000",
+          "#4a0300",
+          "#771405",
+          "#a9230d",
+          "#d24731",
+          "#ef745e",
+          "#fcad9d",
+          "#fee9e5"
+        ],
+        "dark": "#ff7b63"
+      },
+      "crit-ink": {
+        "role": "secondary",
+        "displayName": "Vermilion Ink",
+        "canonical": "#a6290f",
+        "oklch": "oklch(47.9% 0.165 33)",
+        "tonalRamp": [
+          "#220000",
+          "#490400",
+          "#761703",
+          "#a2311b",
+          "#c9523a",
+          "#e77b65",
+          "#fbae9d",
+          "#fee9e4"
+        ],
+        "dark": "#ff9580"
+      },
+      "crit-soft": {
+        "role": "secondary",
+        "displayName": "Vermilion Tint",
+        "canonical": "#fde5df",
+        "oklch": "oklch(94.0% 0.028 34)",
+        "tonalRamp": [
+          "#110907",
+          "#2c211e",
+          "#4b3c38",
+          "#6b5954",
+          "#8c7873",
+          "#ac9a95",
+          "#d0c0bc",
+          "#f9ebe8"
+        ],
+        "dark": "#3b1a15"
+      },
+      "violet": {
+        "role": "secondary",
+        "displayName": "Violet Divider",
+        "canonical": "#6a43cf",
+        "oklch": "oklch(50.9% 0.204 290)",
+        "tonalRamp": [
+          "#0e002e",
+          "#280560",
+          "#44238d",
+          "#613fbd",
+          "#8060e6",
+          "#9e8bf6",
+          "#c3bafd",
+          "#eeecfe"
+        ],
+        "dark": "#b39bff"
+      },
+      "violet-ink": {
+        "role": "secondary",
+        "displayName": "Violet Ink",
+        "canonical": "#5230b0",
+        "oklch": "oklch(43.4% 0.190 288)",
+        "tonalRamp": [
+          "#0d0030",
+          "#260c5d",
+          "#402889",
+          "#5d44b8",
+          "#7b65e1",
+          "#9b8cfa",
+          "#c1bcfa",
+          "#edecfe"
+        ],
+        "dark": "#c5b2ff"
+      },
+      "violet-soft": {
+        "role": "secondary",
+        "displayName": "Violet Tint",
+        "canonical": "#ece6fc",
+        "oklch": "oklch(93.6% 0.030 298)",
+        "tonalRamp": [
+          "#0c0a11",
+          "#25222d",
+          "#413d4b",
+          "#5f5a6c",
+          "#7f7a8d",
+          "#a09bac",
+          "#c5c1d0",
+          "#f0ecf9"
+        ],
+        "dark": "#2a2050"
+      },
+      "slate": {
+        "role": "neutral",
+        "displayName": "Slate Divider",
+        "canonical": "#687388",
+        "oklch": "oklch(55.4% 0.035 263)",
+        "tonalRamp": [
+          "#070b14",
+          "#1e2430",
+          "#38404f",
+          "#545e71",
+          "#737e92",
+          "#959fb1",
+          "#bcc4d5",
+          "#e8effc"
+        ],
+        "dark": "#a0a9bb"
+      },
+      "slate-ink": {
+        "role": "neutral",
+        "displayName": "Slate Ink",
+        "canonical": "#4a5366",
+        "oklch": "oklch(44.2% 0.033 265)",
+        "tonalRamp": [
+          "#070b13",
+          "#1f242f",
+          "#39404e",
+          "#555e70",
+          "#747d91",
+          "#969fb0",
+          "#bdc4d4",
+          "#e8effc"
+        ],
+        "dark": "#b8c0cf"
+      },
+      "slate-soft": {
+        "role": "neutral",
+        "displayName": "Slate Tint",
+        "canonical": "#e7eaf0",
+        "oklch": "oklch(93.6% 0.009 265)",
+        "tonalRamp": [
+          "#090b0f",
+          "#222428",
+          "#3d4044",
+          "#5b5e63",
+          "#7b7d83",
+          "#9c9ea4",
+          "#c1c4ca",
+          "#ebeef5"
+        ],
+        "dark": "#262c3b"
+      },
+      "on-tone": {
+        "role": "neutral",
+        "displayName": "On-fill White",
+        "canonical": "#ffffff",
+        "oklch": "oklch(100.0% 0.000 90)",
+        "tonalRamp": [
+          "#0b0b0b",
+          "#242424",
+          "#404040",
+          "#5d5d5d",
+          "#7d7d7d",
+          "#9e9e9e",
+          "#c4c4c4",
+          "#eeeeee"
+        ]
+      }
+    },
+    "typographyMeta": {
+      "display": {
+        "displayName": "Countdown",
+        "purpose": "Closing countdown in the deadline band only."
+      },
+      "headline": {
+        "displayName": "Page title",
+        "purpose": "h1 page titles; 23px under 640px."
+      },
+      "title": {
+        "displayName": "Sheet heading",
+        "purpose": "h2 on panels."
+      },
+      "body": {
+        "displayName": "Body",
+        "purpose": "All reading text."
+      },
+      "label-tab": {
+        "displayName": "Tab caps",
+        "purpose": "Divider tabs, status tabs, divider labels; uppercase condensed."
+      },
+      "label-field": {
+        "displayName": "Field label",
+        "purpose": "Labels above inputs."
+      },
+      "source-text": {
+        "displayName": "Source text",
+        "purpose": "Raw extracted PDF text in the viewer only."
+      }
+    },
+    "shadows": [
+      {
+        "name": "sheet",
+        "value": "0 1px 2px rgb(19 26 42 / 0.05), 0 6px 16px -6px rgb(19 26 42 / 0.08)",
+        "purpose": "Every panel."
+      },
+      {
+        "name": "lifted",
+        "value": "0 4px 10px rgb(19 26 42 / 0.08), 0 24px 56px -12px rgb(19 26 42 / 0.28)",
+        "purpose": "Modal, toast, login card."
+      },
+      {
+        "name": "spine-label",
+        "value": "inset 0 0 0 1px rgb(19 26 42 / 0.1), 0 2px 6px rgb(0 0 0 / 0.22)",
+        "purpose": "Product-name card on the rail only."
+      },
+      {
+        "name": "focus-halo",
+        "value": "0 0 0 3px var(--cobalt-soft)",
+        "purpose": "Focused inputs and selects."
+      },
+      {
+        "name": "focus-ring",
+        "value": "outline: 2px solid var(--cobalt); outline-offset: 2px",
+        "purpose": "All other focus-visible."
+      },
+      {
+        "name": "scrim",
+        "value": "rgb(10 15 34 / 0.5)",
+        "purpose": "Modal backdrop."
+      }
+    ],
+    "motion": [
+      {
+        "name": "ease-tab",
+        "value": "cubic-bezier(0.16, 1, 0.3, 1)",
+        "purpose": "Tab lift (160ms), divider rule colour (220ms), disclosure chevron (200ms), meter fill (400ms)."
+      },
+      {
+        "name": "state",
+        "value": "140ms ease-out",
+        "purpose": "Background/border/colour on buttons, nav, rows."
+      },
+      {
+        "name": "reduced-motion",
+        "value": "transition: none",
+        "purpose": "All transitions removed under prefers-reduced-motion: reduce."
+      }
+    ],
+    "breakpoints": [
+      {
+        "name": "phone",
+        "value": "520px"
+      },
+      {
+        "name": "sm",
+        "value": "640px"
+      },
+      {
+        "name": "rail-collapse",
+        "value": "860px"
+      },
+      {
+        "name": "two-column",
+        "value": "1080px"
+      }
+    ],
+    "darkMode": {
+      "trigger": "prefers-color-scheme: dark (unless [data-theme='light']) or :root[data-theme='dark']",
+      "note": "Full token swap; values listed per color under colorMeta.*.dark."
+    },
+    "rasterAssets": "None shipped; no provenance to record."
+  },
+  "components": [
+    {
+      "name": "Primary Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "The single solid cobalt action per view (New tender, Save details).",
+      "html": "<button class=\"ds-btn ds-btn-primary\"><svg class=\"ds-ico\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.9\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><path d=\"M5 12h14\"/><path d=\"M12 5v14\"/></svg>New tender</button>",
+      "css": ".ds-btn { font-family: var(--font-ui, 'Archivo Variable', 'Archivo', system-ui, sans-serif); display: inline-flex; align-items: center; gap: 7px; min-height: 36px; padding: 7px 14px; border-radius: 7px; font-size: 14.5px; font-weight: 580; cursor: pointer; transition: background 140ms ease-out, border-color 140ms ease-out; } .ds-btn-primary { background: var(--cobalt, #2a52cf); color: var(--cobalt-on, #fff); border: 1px solid var(--cobalt, #2a52cf); box-shadow: 0 1px 2px rgb(19 26 42 / 0.15); } .ds-btn-primary:hover { background: var(--cobalt-ink, #1f43b0); border-color: var(--cobalt-ink, #1f43b0); } .ds-btn:focus-visible { outline: 2px solid var(--cobalt, #2a52cf); outline-offset: 2px; } .ds-ico { width: 17px; height: 17px; flex: none; }"
+    },
+    {
+      "name": "Secondary Button",
+      "kind": "button",
+      "refersTo": "button-secondary",
+      "description": "Default action: a white sheet with a strong hairline (Export PDF, Add PDFs, Re-run AI).",
+      "html": "<button class=\"ds-btn-sec\">Export PDF</button>",
+      "css": ".ds-btn-sec { font-family: var(--font-ui, 'Archivo Variable', 'Archivo', system-ui, sans-serif); display: inline-flex; align-items: center; gap: 7px; min-height: 36px; padding: 7px 14px; border-radius: 7px; font-size: 14.5px; font-weight: 580; cursor: pointer; background: var(--sheet, #fff); color: var(--ink, #131a2a); border: 1px solid var(--line-strong, #c4cbda); transition: background 140ms ease-out, border-color 140ms ease-out; } .ds-btn-sec:hover { background: var(--sunken, #f3f5f9); border-color: var(--muted, #5a6478); } .ds-btn-sec:focus-visible { outline: 2px solid var(--cobalt, #2a52cf); outline-offset: 2px; }"
+    },
+    {
+      "name": "Ghost Button",
+      "kind": "button",
+      "refersTo": "button-ghost",
+      "description": "Inline text action in cobalt ink (Close, back link, viewer toggles).",
+      "html": "<button class=\"ds-btn-ghost\">Close</button>",
+      "css": ".ds-btn-ghost { font-family: var(--font-ui, 'Archivo Variable', 'Archivo', system-ui, sans-serif); display: inline-flex; align-items: center; gap: 7px; min-height: 30px; padding: 4px 8px; border-radius: 7px; font-size: 14.5px; font-weight: 580; cursor: pointer; background: none; border: 1px solid transparent; color: var(--cobalt-ink, #1f43b0); transition: background 140ms ease-out; } .ds-btn-ghost:hover { background: var(--cobalt-soft, #e2e9fd); } .ds-btn-ghost:focus-visible { outline: 2px solid var(--cobalt, #2a52cf); outline-offset: 2px; }"
+    },
+    {
+      "name": "Field and Select",
+      "kind": "input",
+      "refersTo": "input",
+      "description": "Labelled input and chevron select; cobalt border plus soft halo on focus.",
+      "html": "<label class=\"ds-field\"><span>Reference number</span><input class=\"ds-input\" value=\"TER/RFQ2026/27/03\"></label><label class=\"ds-field\"><span>Briefing compulsory?</span><select class=\"ds-input ds-select\"><option>Yes, compulsory</option><option>No</option></select></label>",
+      "css": ".ds-field { font-family: var(--font-ui, 'Archivo Variable', 'Archivo', system-ui, sans-serif); display: flex; flex-direction: column; gap: 5px; margin-bottom: 14px; max-width: 320px; } .ds-field > span { font-size: 13px; font-weight: 580; color: var(--ink-2, #2e3850); } .ds-input { font: inherit; font-size: 14.5px; color: var(--ink, #131a2a); background: var(--sheet, #fff); border: 1px solid var(--line-strong, #c4cbda); border-radius: 7px; padding: 8px 11px; min-height: 38px; } .ds-input:hover { border-color: var(--muted, #5a6478); } .ds-input:focus { outline: none; border-color: var(--cobalt, #2a52cf); box-shadow: 0 0 0 3px var(--cobalt-soft, #e2e9fd); } .ds-select { appearance: none; -webkit-appearance: none; padding-right: 34px; background-image: url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%235a6478' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E\"); background-repeat: no-repeat; background-position: right 10px center; background-size: 16px; }"
+    },
+    {
+      "name": "Spine Rail Navigation",
+      "kind": "nav",
+      "refersTo": "rail",
+      "description": "Navy binder spine with the white spine-label card; the current item opens into the paper ground.",
+      "html": "<nav class=\"ds-rail\"><div class=\"ds-brand\"><b>Tender <span>Intelligence</span></b><small>by Mdaka Advanced Technologies</small></div><button class=\"ds-nav\" aria-current=\"page\"><svg class=\"ds-ico\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.9\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><path d=\"m12.83 2.18a2 2 0 0 0-1.66 0L2.6 6.08a1 1 0 0 0 0 1.83l8.58 3.91a2 2 0 0 0 1.66 0l8.58-3.9a1 1 0 0 0 0-1.83Z\"/><path d=\"m22 17.65-9.17 4.16a2 2 0 0 1-1.66 0L2 17.65\"/><path d=\"m22 12.65-9.17 4.16a2 2 0 0 1-1.66 0L2 12.65\"/></svg>Tenders</button><button class=\"ds-nav\"><svg class=\"ds-ico\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.9\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><path d=\"M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z\"/></svg>Document vault</button></nav>",
+      "css": ".ds-rail { font-family: var(--font-ui, 'Archivo Variable', 'Archivo', system-ui, sans-serif); background: var(--spine, #1a2a5e); color: var(--spine-ink, #c9d3f0); width: 248px; padding: 20px 0 18px 16px; display: flex; flex-direction: column; gap: 3px; font-size: 14.5px; } .ds-brand { margin: 0 16px 21px 0; background: #f7f8fc; color: #131a2a; border-radius: 8px; padding: 12px 14px 11px; box-shadow: inset 0 0 0 1px rgb(19 26 42 / 0.1), 0 2px 6px rgb(0 0 0 / 0.22); display: flex; flex-direction: column; gap: 3px; } .ds-brand b { font-size: 17px; font-weight: 760; font-stretch: 86%; letter-spacing: -0.01em; line-height: 1.1; } .ds-brand b span { color: #2a52cf; } .ds-brand small { font-size: 11.5px; color: #5a6478; } .ds-nav { font: inherit; display: flex; align-items: center; gap: 11px; width: 100%; text-align: left; background: none; border: 0; color: inherit; cursor: pointer; padding: 10px 14px; border-radius: 8px 0 0 8px; font-weight: 520; transition: background 140ms ease-out, color 140ms ease-out; } .ds-nav:hover { background: var(--spine-hi, #233670); color: #fff; } .ds-nav[aria-current='page'] { background: var(--ground, #edf0f6); color: var(--ink, #131a2a); font-weight: 650; } .ds-nav[aria-current='page'] .ds-ico { color: var(--cobalt, #2a52cf); } .ds-nav:focus-visible { outline: 2px solid var(--cobalt, #2a52cf); outline-offset: -2px; } .ds-ico { width: 17px; height: 17px; flex: none; }"
+    },
+    {
+      "name": "Divider Tabs",
+      "kind": "custom",
+      "refersTo": "divider-tab",
+      "description": "Signature index-divider tabs on a 3px rule that takes the selected tab colour.",
+      "html": "<div class=\"ds-dtabs\" style=\"--cur: var(--cobalt, #2a52cf)\"><button class=\"ds-dtab ds-t-cobalt\" aria-selected=\"true\">Active <span class=\"ds-n\">3</span></button><button class=\"ds-dtab ds-t-violet\">Submitted <span class=\"ds-n\">1</span></button><button class=\"ds-dtab ds-t-ready\">Won <span class=\"ds-n\">0</span></button><button class=\"ds-dtab ds-t-slate\">Lost <span class=\"ds-n\">0</span></button></div>",
+      "css": ".ds-t-cobalt { --tone: var(--cobalt, #2a52cf); --tone-on: var(--cobalt-on, #fff); --tone-soft: var(--cobalt-soft, #e2e9fd); --tone-ink: var(--cobalt-ink, #1f43b0); } .ds-t-violet { --tone: var(--violet, #6a43cf); --tone-on: var(--violet-on, #fff); --tone-soft: var(--violet-soft, #ece6fc); --tone-ink: var(--violet-ink, #5230b0); } .ds-t-ready { --tone: var(--ready, #13805a); --tone-on: var(--ready-on, #fff); --tone-soft: var(--ready-soft, #dcf2e7); --tone-ink: var(--ready-ink, #0d6545); } .ds-t-slate { --tone: var(--slate, #687388); --tone-on: var(--slate-on, #fff); --tone-soft: var(--slate-soft, #e7eaf0); --tone-ink: var(--slate-ink, #4a5366); } .ds-dtabs { font-family: var(--font-ui, 'Archivo Variable', 'Archivo', system-ui, sans-serif); display: flex; flex-wrap: wrap; gap: 4px; padding: 14px 20px 0; border-bottom: 3px solid var(--cur, #c4cbda); } .ds-dtab { font: inherit; display: inline-flex; align-items: center; gap: 8px; cursor: pointer; border: 0; border-radius: 8px 8px 0 0; padding: 9px 15px 8px; background: var(--tone-soft); color: var(--tone-ink); font-size: 13px; font-weight: 680; font-stretch: 82%; letter-spacing: 0.05em; text-transform: uppercase; transform: translateY(2px); transition: background 160ms ease-out, color 160ms ease-out, transform 160ms cubic-bezier(0.16, 1, 0.3, 1); } .ds-dtab:hover { transform: translateY(0); } .ds-dtab[aria-selected='true'] { background: var(--tone); color: var(--tone-on); transform: translateY(0); } .ds-dtab:focus-visible { outline: 2px solid var(--cobalt, #2a52cf); outline-offset: 2px; } .ds-n { font-variant-numeric: tabular-nums; font-size: 11.5px; font-stretch: 100%; letter-spacing: 0; background: rgb(255 255 255 / 0.55); border-radius: 999px; padding: 0 7px; line-height: 1.6; } .ds-dtab[aria-selected='true'] .ds-n { background: rgb(255 255 255 / 0.25); }"
+    },
+    {
+      "name": "Status Tab",
+      "kind": "chip",
+      "refersTo": "status-tab",
+      "description": "Tender status and vault expiry printed as a solid index tab in its fixed divider colour.",
+      "html": "<span class=\"ds-stab\" style=\"--tone: var(--cobalt, #2a52cf); --tone-on: var(--cobalt-on, #fff)\">Preparing</span> <span class=\"ds-stab\" style=\"--tone: var(--review, #f2b400); --tone-on: var(--review-on, #2b2000)\">Reviewing</span> <span class=\"ds-stab\" style=\"--tone: var(--crit, #c9361f); --tone-on: var(--crit-on, #fff)\">Expired 3 d ago</span>",
+      "css": ".ds-stab { font-family: var(--font-ui, 'Archivo Variable', 'Archivo', system-ui, sans-serif); display: inline-flex; align-items: center; padding: 3px 10px 2px; border-radius: 6px 6px 2px 2px; background: var(--tone); color: var(--tone-on); font-size: 11.5px; font-weight: 700; font-stretch: 80%; letter-spacing: 0.05em; text-transform: uppercase; white-space: nowrap; }"
+    },
+    {
+      "name": "Divider Label on List",
+      "kind": "custom",
+      "refersTo": "divider-tab-selected",
+      "description": "Section heading as a solid divider tab sitting on a list with a matching 3px top rule.",
+      "html": "<div class=\"ds-sec\"><h3 class=\"ds-dlabel\">Documents to submit <span class=\"ds-dn\">9</span></h3><ul class=\"ds-req\"><li><span>SBD 4 bidder's disclosure</span><span class=\"ds-pill\">7 d left</span></li><li><span>Tax compliance status (TCS) PIN</span><span class=\"ds-pill ds-ok\">Ready</span></li></ul></div>",
+      "css": ".ds-sec { font-family: var(--font-ui, 'Archivo Variable', 'Archivo', system-ui, sans-serif); display: flex; flex-direction: column; font-size: 14.5px; color: var(--ink, #131a2a); --tone: var(--ready, #13805a); --tone-on: var(--ready-on, #fff); } .ds-dlabel { margin: 0; display: inline-flex; align-items: center; gap: 8px; align-self: flex-start; padding: 6px 13px 5px; border-radius: 7px 7px 0 0; background: var(--tone); color: var(--tone-on); font-size: 12.5px; font-weight: 700; font-stretch: 82%; letter-spacing: 0.05em; text-transform: uppercase; } .ds-dn { font-stretch: 100%; letter-spacing: 0; font-weight: 600; opacity: 0.85; } .ds-req { list-style: none; margin: 0; padding: 0; background: var(--sheet, #fff); border: 1px solid var(--line, #dfe3ec); border-top: 3px solid var(--tone); border-radius: 0 0 7px 7px; } .ds-req li { display: flex; justify-content: space-between; align-items: center; gap: 16px; padding: 13px 16px; border-bottom: 1px solid var(--line, #dfe3ec); } .ds-req li:last-child { border-bottom: 0; } .ds-pill { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 620; line-height: 1.6; padding: 1px 9px; border-radius: 999px; background: var(--review-soft, #fdf2cf); color: var(--review-ink, #7a5300); } .ds-pill::before { content: ''; width: 6px; height: 6px; border-radius: 50%; background: currentColor; } .ds-pill.ds-ok { background: var(--ready-soft, #dcf2e7); color: var(--ready-ink, #0d6545); }"
+    },
+    {
+      "name": "Deadline Band",
+      "kind": "card",
+      "refersTo": "sheet",
+      "description": "Tender detail band: tinted closing cell with display countdown, then briefing and submission cells.",
+      "html": "<div class=\"ds-band\"><div class=\"ds-closing\"><span class=\"ds-lbl\"><svg class=\"ds-ico\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.9\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><path d=\"M21 7.5V6a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h3.5\"/><path d=\"M16 2v4\"/><path d=\"M8 2v4\"/><path d=\"M3 10h5\"/><path d=\"M17.5 17.5 16 16.3V14\"/><circle cx=\"16\" cy=\"16\" r=\"6\"/></svg>Closing</span><span class=\"ds-count\">7 days left</span><span class=\"ds-sub\">Tue, 03 Nov, 11:00</span></div><div><span class=\"ds-lbl\">Briefing</span><span class=\"ds-big\">Thu, 29 Oct, 10:00</span><span class=\"ds-sub\">Compulsory &middot; 2 d left</span></div><div><span class=\"ds-lbl\">Checklist</span><span class=\"ds-big\">2 of 9 prepared</span></div></div>",
+      "css": ".ds-band { font-family: var(--font-ui, 'Archivo Variable', 'Archivo', system-ui, sans-serif); display: grid; grid-template-columns: 1.5fr 1fr 1fr; background: var(--sheet, #fff); border: 1px solid var(--line, #dfe3ec); border-radius: 10px; overflow: hidden; box-shadow: 0 1px 2px rgb(19 26 42 / 0.05), 0 6px 16px -6px rgb(19 26 42 / 0.08); color: var(--ink, #131a2a); } .ds-band > div { padding: 16px 20px 18px; display: flex; flex-direction: column; gap: 6px; border-right: 1px solid var(--line, #dfe3ec); } .ds-band > div:last-child { border-right: 0; } .ds-closing { background: var(--review-soft, #fdf2cf); } .ds-lbl { font-size: 12.5px; color: var(--muted, #5a6478); font-weight: 580; display: flex; align-items: center; gap: 6px; } .ds-count { font-size: 38px; font-weight: 760; font-stretch: 80%; letter-spacing: -0.02em; line-height: 1; font-variant-numeric: tabular-nums; color: var(--review-ink, #7a5300); } .ds-big { font-size: 17px; font-weight: 700; font-stretch: 86%; font-variant-numeric: tabular-nums; } .ds-sub { font-size: 13.5px; color: var(--ink-2, #2e3850); } .ds-closing .ds-sub { font-size: 15px; font-weight: 600; color: var(--ink, #131a2a); } .ds-ico { width: 17px; height: 17px; flex: none; }"
+    }
+  ],
+  "narrative": {
+    "northStar": "The Bid File",
+    "overview": "**Creative North Star: \"The Bid File\"**\n\nThe app is the company's own lever-arch bid file. A navy binder spine runs down the left as navigation, the page is cool bright bond paper, and every working surface is a white sheet with a hairline edge. Meaning comes from binder index dividers: each status and each checklist section owns one fixed divider colour, shown as a tab, so the user knows where they are by colour before reading a word.\n\nThe palette is a closed set of six divider colours plus navy and paper neutrals. Colour is only used to carry meaning. Typography is one variable family, Archivo. Condensed bold weights set headings and caps tab labels, and every date, count and countdown uses tabular figures. The density is calm and roomy for long desk sessions. It gets tighter only in lists that need scanning: the tender table, the coming-up strip, and requirement lists.\n\nThis is compliance work, so the system rejects the grey SaaS screen with one teal accent, cream or warm paper, decorative gradients and glow, and playful illustration. Light and dark modes share every role. Dark mode swaps the values, never the meaning.",
+    "keyCharacteristics": [
+      "A navy spine rail with a white spine-label card for the product name. The current page's nav item opens into the paper ground, like a tab pulled out of the binder.",
+      "Six divider colours with fixed meanings, applied through a single tone hook (fill, text-on-fill, soft tint, text-on-tint).",
+      "Index-divider tabs: top-rounded tabs in condensed caps sitting on a 3px rule in the selected tab's colour.",
+      "White sheets on a blue-white ground with soft, low, diffuse shadows.",
+      "Tabular figures for every date, count and countdown. Deadlines are the loudest type on the screen.",
+      "Lucide line icons at 17px with a 1.9 stroke."
+    ],
+    "rules": [
+      {
+        "name": "The Fixed Divider Rule",
+        "body": "A divider colour means one thing everywhere. Reviewing is marigold, preparing is cobalt, submitted is violet, won is emerald, and lost or not bidding is slate. The status-to-tone map in the code is the single source. Never pick a tone for looks.",
+        "section": "colors"
+      },
+      {
+        "name": "The Tone Hook Rule",
+        "body": "Coloured components take their colour from `data-tone` (review, ready, crit, cobalt, violet, slate), which sets the fill, on-fill, soft and ink roles. They never take a hex value or a one-off class.",
+        "section": "colors"
+      },
+      {
+        "name": "The One Cobalt Button Rule",
+        "body": "Each view has one solid cobalt button, for its primary action. All other buttons are white sheets with a strong hairline, or ghost text.",
+        "section": "colors"
+      },
+      {
+        "name": "The Tabular Figures Rule",
+        "body": "Every date, time, count and countdown uses tabular figures, so deadline columns line up.",
+        "section": "typography"
+      },
+      {
+        "name": "The Caps Belong to Tabs Rule",
+        "body": "Uppercase, condensed, tracked type is reserved for things that are tabs or column heads. Headings and body text stay in sentence case.",
+        "section": "typography"
+      },
+      {
+        "name": "The Soft Offset Rule",
+        "body": "Shadows are diffuse and tinted with ink. This is not a neobrutalist world, so it never uses hard offset shadows or zero-blur slabs.",
+        "section": "elevation"
+      }
+    ],
+    "dos": [
+      "**Do** take every coloured surface from the tone hook (`data-tone` = review / ready / crit / cobalt / violet / slate) and keep status-to-colour mapping in the single status-tone map.",
+      "**Do** show status as a solid index tab and sections as divider labels sitting on a list with a matching 3px top rule.",
+      "**Do** make deadlines and expiry the loudest elements: the countdown in display type, tinted with the closing tone.",
+      "**Do** use tabular figures for every date, count and countdown, in en-ZA format.",
+      "**Do** keep one solid cobalt button per view. Every other action is secondary or ghost.",
+      "**Do** use Lucide line icons as inline SVG at 17px with a 1.9 stroke, coloured by the surrounding text.",
+      "**Do** keep sheets white on a blue-white ground with a hairline edge and the soft Sheet shadow.",
+      "**Do** keep dark mode a value swap of the same tokens."
+    ],
+    "donts": [
+      "**Don't** use a divider colour for decoration, or use two colours for one meaning (for example, won in cobalt).",
+      "**Don't** warm the ground to cream or ivory. The paper is cool blue-white.",
+      "**Don't** add decorative gradients, glow or playful illustration. The only gradient is the functional fade mask on scrolling tab rows, and the only halo is the input focus ring.",
+      "**Don't** use hard offset or zero-blur shadows.",
+      "**Don't** set headings, body text or labels above headings in uppercase. Caps belong to tabs and column heads.",
+      "**Don't** use emoji or glyph characters as icons."
+    ]
+  }
+}

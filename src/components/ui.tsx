@@ -26,15 +26,16 @@ export function Modal({ title, onClose, children, footer }: { title: string; onC
   );
 }
 
+// Vault states are printed as divider tabs: emerald ready, marigold expiring, vermilion expired/missing.
 export function ExpiryPill({ expires_on }: { expires_on: string | null }) {
   const s = expiryState(expires_on);
-  if (s === 'no_expiry') return <span className="pill ok">On file</span>;
+  if (s === 'no_expiry') return <span className="stab" data-tone="ready">On file</span>;
   const n = daysUntil(expires_on!);
-  if (s === 'expired') return <span className="pill crit">Expired {Math.abs(n) === 0 ? 'today' : `${Math.abs(n)} d ago`}</span>;
-  if (s === 'expiring') return <span className="pill warn">{n === 0 ? 'Expires today' : `Expires in ${n} d`}</span>;
-  return <span className="pill ok">Valid</span>;
+  if (s === 'expired') return <span className="stab" data-tone="crit">Expired {Math.abs(n) === 0 ? 'today' : `${Math.abs(n)} d ago`}</span>;
+  if (s === 'expiring') return <span className="stab" data-tone="review">{n === 0 ? 'Expires today' : `Expires in ${n} d`}</span>;
+  return <span className="stab" data-tone="ready">Valid</span>;
 }
 
 export function MissingPill({ core }: { core: boolean }) {
-  return core ? <span className="pill crit">Missing</span> : <span className="pill plain">Not uploaded</span>;
+  return core ? <span className="stab" data-tone="crit">Missing</span> : <span className="stab soft" data-tone="slate">Not uploaded</span>;
 }

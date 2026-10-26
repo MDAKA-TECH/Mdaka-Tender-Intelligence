@@ -11,3 +11,4 @@ test-set/results/
 supabase/.temp
 supabase/.branches
 supabase/functions/.env
+.impeccable/review/

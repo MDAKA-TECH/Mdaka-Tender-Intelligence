@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
+import { Building2, FolderLock, Layers, LogOut, type LucideIcon } from 'lucide-react';
 import { useAuth } from './lib/auth';
 import { supabaseConfigured } from './lib/supabase';
 import type { AppUser, Company } from './lib/types';
@@ -13,10 +14,10 @@ import TenderDetail from './pages/TenderDetail';
 type Route = { page: 'tenders' } | { page: 'tender'; id: string } | { page: 'vault' } | { page: 'company' };
 type Page = Route['page'];
 
-const NAV: { page: Page; label: string }[] = [
-  { page: 'tenders', label: 'Tenders' },
-  { page: 'vault', label: 'Document vault' },
-  { page: 'company', label: 'Company profile' },
+const NAV: { page: Page; label: string; short: string; icon: LucideIcon }[] = [
+  { page: 'tenders', label: 'Tenders', short: 'Tenders', icon: Layers },
+  { page: 'vault', label: 'Document vault', short: 'Vault', icon: FolderLock },
+  { page: 'company', label: 'Company profile', short: 'Company', icon: Building2 },
 ];
 
 let toastTimer = 0;
@@ -105,12 +106,14 @@ function Shell({ user, company }: { user: AppUser; company: Company }) {
             <b>
               Tender <span className="ti">Intelligence</span>
             </b>
-            <small>Mdaka Advanced Technologies</small>
+            <small>by Mdaka Advanced Technologies</small>
           </div>
           <nav className="nav" aria-label="Main">
             {NAV.map((n) => (
               <button key={n.label} aria-current={n.page === active ? 'page' : undefined} onClick={() => go({ page: n.page } as Route)}>
-                {n.label}
+                <n.icon className="ico" aria-hidden="true" />
+                <span className="long">{n.label}</span>
+                <span className="short">{n.short}</span>
               </button>
             ))}
           </nav>
@@ -120,6 +123,7 @@ function Shell({ user, company }: { user: AppUser; company: Company }) {
               <span>{company.name}</span>
             </div>
             <button className="btn rail-btn" onClick={signOut}>
+              <LogOut className="ico" aria-hidden="true" />
               Sign out
             </button>
           </div>
