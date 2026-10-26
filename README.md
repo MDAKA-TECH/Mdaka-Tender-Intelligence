@@ -25,15 +25,18 @@ Same setup as Student360.
 - [x] Live processing status (waiting / reading / read / failed), retry, page-text viewer with search
 - [x] Edit tender details (reference, issuer, closing, briefing, status); delete files or the whole tender
 
-### Week 3: AI extraction (engine and gate, in progress)
+### Week 3: AI extraction (gate passed 26 Oct 2026)
 - [x] Fixed JSON schema for all fields in the scope doc; every value has file, page, quote and confidence
-- [x] Provider switch: Anthropic, OpenAI or Gemini via `LLM_PROVIDER` in `worker/.env`
-- [x] Verifier: every quote is checked against the real page text; wrong pages are corrected,
-      quotes that don't exist are marked unverified and low confidence
-- [x] Answer key for RFQ 906 and 907 (`test-set/answer-key/`), drafted and quote-checked; awaiting Ruboi's review
-- [x] `evaluate.py` scores a run against the answer key using the scope doc's pass bar
-- [ ] Run the gate with a real model and pass it
-- [ ] Then: worker runs extraction after a tender's PDFs are read, results saved for the week 4 review screen
+- [x] Provider switch: Anthropic, OpenAI or Gemini via `LLM_PROVIDER` (testing on free-tier Gemini Flash)
+- [x] Verifier: every quote is checked against the real page text (tolerates table layouts); wrong pages are
+      corrected, quotes that don't exist are marked unverified and low confidence
+- [x] Keyword safety net: standard vault documents and forms (tax PIN, CSD, B-BBEE, CIPC, bank letter, COID,
+      pricing schedule, SBD 4, SBD 6.1) are added at low confidence if the text asks for them and the AI missed them
+- [x] Parallel OCR with progress, cached for evaluation runs
+- [x] `evaluate.py` gate: **4/4 tenders pass** (Parliament RFQ 906 + 907, Transport Economic Regulator 4-file pack,
+      Limpopo DPWRI 56-page scanned tender)
+- [ ] Worker runs extraction after a tender's PDFs are read and saves results for the week 4 review screen
+- [ ] Grow the test set towards 15-20 tenders (scope doc), incl. more scans
 
 ## Set up
 
