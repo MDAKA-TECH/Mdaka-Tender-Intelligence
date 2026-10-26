@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useMemo, useState, type FormEvent } from 'react';
 import { friendlyError, supabase } from '../lib/supabase';
 import { TENDER_STATUS_LABEL, type Company, type PageText, type Requirement, type Tender, type TenderAi, type TenderFile, type TenderStatus } from '../lib/types';
-import AiPanel from '../components/AiPanel';
+import ReviewPanel, { type DetailsPrefill } from '../components/ReviewPanel';
+import type { VaultDoc } from '../lib/vault';
 import { closingIn, fmtDateTime, fmtSize, fromLocalInput, toLocalInput } from '../lib/dates';
 import { TENDER_BUCKET, checkPdf, uploadTenderFiles } from '../lib/tenderFiles';
 import { Modal, useToast } from '../components/ui';
@@ -9,17 +10,19 @@ import { Modal, useToast } from '../components/ui';
 const FILE_COLS = 'id, tender_id, file_path, file_name, file_size, status, error, page_count, ocr_used, ocr_pages, extracted_at, created_at';
 const POLL_MS = 4000;
 const AI_COLS = 'ai_status, ai_error, ai_model, ai_extracted_at, ai_claimed_at, ai_file_ids, ai_fields';
-const REQ_COLS = 'id, kind, description, doc_type, mandatory, conditions, source_file_id, source_page, confidence, quote, verified, notes, added_by, confirmed, sort_order';
+const REQ_COLS = 'id, kind, description, doc_type, mandatory, conditions, source_file_id, source_page, confidence, quote, verified, notes, added_by, confirmed, status, sort_order';
 const WORKER_HINT_AFTER_MS = 2 * 60 * 1000;
 
-export default function TenderDetail({ id, company, onBack }: { id: string; company: Company; onBack: () => void }) {
+export default function TenderDetail({ id, company, onBack, onOpenVault }: { id: string; company: Company; onBack: () => void; onOpenVault: () => void }) {
   const toast = useToast();
   const [tender, setTender] = useState<Tender | null>(null);
   const [files, setFiles] = useState<TenderFile[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [viewing, setViewing] = useState<{ file: TenderFile; page?: number; query?: string } | null>(null);
   const [ai, setAi] = useState<TenderAi | null>(null);
-  const [reqs, setReqs] = useState<Requirement[] | null>(null);
+  const [reqs, setReqs] = useState<Requirement[]>([]);
+  const [vault, setVault] = useState<VaultDoc[]>([]);
+  const [prefill, setPrefill] = useState<{ p: DetailsPrefill; key: number } | null>(null);
   const [removingFile, setRemovingFile] = useState<TenderFile | null>(null);
   const [removingTender, setRemovingTender] = useState(false);
   const [uploading, setUploading] = useState(false);
@@ -30,24 +33,31 @@ export default function TenderDetail({ id, company, onBack }: { id: string; comp
     setFiles(data as TenderFile[]);
   }, [id]);
 
+  const loadReqs = useCallback(async () => {
+    const { data, error: e } = await supabase.from('requirements').select(REQ_COLS).eq('tender_id', id).order('sort_order');
+    if (e) return toast(friendlyError(e));
+    setReqs((data as Requirement[]) ?? []);
+  }, [id, toast]);
+
   const loadAi = useCallback(async () => {
     const { data, error: e } = await supabase.from('tenders').select(AI_COLS).eq('id', id).maybeSingle();
     if (e || !data) return;
     const next = data as TenderAi;
     setAi((prev) => {
-      // Fetch the requirement rows only when a run has finished (or a newer one has).
-      if (next.ai_status === 'done' && next.ai_extracted_at !== prev?.ai_extracted_at) {
-        supabase
-          .from('requirements')
-          .select(REQ_COLS)
-          .eq('tender_id', id)
-          .in('added_by', ['ai', 'keyword_check'])
-          .order('sort_order')
-          .then(({ data: r }) => setReqs((r as Requirement[]) ?? []));
-      }
+      // A run just finished: fetch its new requirement rows.
+      if (prev && next.ai_extracted_at !== prev.ai_extracted_at) loadReqs();
       return next;
     });
-  }, [id]);
+  }, [id, loadReqs]);
+
+  useEffect(() => {
+    loadReqs();
+    supabase
+      .from('company_documents')
+      .select('id, doc_type, label, file_name, expires_on, created_at')
+      .order('created_at', { ascending: false })
+      .then(({ data }) => setVault((data as VaultDoc[]) ?? []));
+  }, [loadReqs]);
 
   useEffect(() => {
     loadAi();
@@ -185,15 +195,23 @@ export default function TenderDetail({ id, company, onBack }: { id: string; comp
           )}
         </section>
 
-        <DetailsForm tender={tender} onSaved={(t) => { setTender(t); toast('Details saved.'); }} />
+        <DetailsForm tender={tender} prefill={prefill} onSaved={(t) => { setTender(t); setPrefill(null); toast('Details saved.'); }} />
       </div>
 
       {ai && (
-        <AiPanel
+        <ReviewPanel
+          tender={tender}
           ai={ai}
           reqs={reqs}
           files={files}
+          vault={vault}
           onRun={runAi}
+          onChanged={loadReqs}
+          onOpenVault={onOpenVault}
+          onFillDetails={(p) => {
+            setPrefill({ p, key: Date.now() });
+            document.getElementById('details-form')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+          }}
           onOpenSource={(fileId, page, quote) => {
             const f = files.find((x) => x.id === fileId);
             if (f && f.status === 'done') setViewing({ file: f, page: page ?? undefined, query: quote ?? undefined });
@@ -247,7 +265,7 @@ function ExtractionPill({ status }: { status: TenderFile['status'] }) {
 
 // ---------------------------------------------------------------- details
 
-function DetailsForm({ tender, onSaved }: { tender: Tender; onSaved: (t: Tender) => void }) {
+function DetailsForm({ tender, prefill, onSaved }: { tender: Tender; prefill: { p: DetailsPrefill; key: number } | null; onSaved: (t: Tender) => void }) {
   const [ref, setRef] = useState(tender.reference_no ?? '');
   const [entity, setEntity] = useState(tender.entity ?? '');
   const [desc, setDesc] = useState(tender.description ?? '');
@@ -257,6 +275,18 @@ function DetailsForm({ tender, onSaved }: { tender: Tender; onSaved: (t: Tender)
   const [status, setStatus] = useState<TenderStatus>(tender.status);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+
+  // "Fill tender details" from the AI results: fills the form; nothing is saved until the person clicks Save.
+  useEffect(() => {
+    if (!prefill) return;
+    const p = prefill.p;
+    if (p.reference_no) setRef(p.reference_no);
+    if (p.entity) setEntity(p.entity);
+    if (p.description) setDesc(p.description);
+    if (p.closing_local) setClosing(p.closing_local);
+    if (p.briefing_local) setBriefing(p.briefing_local);
+    if (p.briefing_compulsory != null) setCompulsory(p.briefing_compulsory ? 'yes' : 'no');
+  }, [prefill]);
 
   const save = async (ev: FormEvent) => {
     ev.preventDefault();
@@ -282,9 +312,16 @@ function DetailsForm({ tender, onSaved }: { tender: Tender; onSaved: (t: Tender)
   };
 
   return (
-    <form className="panel" onSubmit={save}>
+    <form className="panel" onSubmit={save} id="details-form">
       <div className="panel-head"><h2>Details</h2></div>
       <div className="panel-body" style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+        {prefill && (
+          <div className="callout warn">
+            <b>Filled in from the tender documents</b>
+            Check each field, then click Save details.
+            {prefill.p.notes.map((n) => <span key={n} style={{ display: 'block', marginTop: 4 }}>{n}</span>)}
+          </div>
+        )}
         <label className="field">
           <span>Status</span>
           <select className="select" value={status} onChange={(e) => setStatus(e.target.value as TenderStatus)}>

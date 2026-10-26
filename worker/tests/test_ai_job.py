@@ -112,6 +112,26 @@ def test_saves_results_and_maps_files():
     assert all(r["company_id"] == "C1" and r["tender_id"] == "T1" for r in new)
 
 
+def test_rerun_skips_confirmed_and_dismissed_items():
+    sb = FakeSB()
+    key = setup_ter(sb)
+    sb.db["requirements"] = [
+        # Confirmed with the person's own wording, and the vault type set.
+        {"tender_id": "T1", "kind": "certification", "description": "CSD report (print fresh)", "doc_type": "csd_report",
+         "added_by": "ai", "confirmed": True, "status": "todo"},
+        # Marked "not required" by the person.
+        {"tender_id": "T1", "kind": "document", "description": "Supplier POPIA consent form", "doc_type": None,
+         "added_by": "ai", "confirmed": True, "status": "not_applicable"},
+    ]
+    use_fixture(perfect_answer(key))
+    ai_job.process_ai(sb, {"id": "T1", "company_id": "C1", "ai_attempts": 1})
+    new = [r for r in sb.db["requirements"] if r.get("sort_order") is not None]
+    assert not any(r.get("doc_type") == "csd_report" for r in new)          # same vault type → skipped
+    assert not any("POPIA" in r["description"] for r in new)                # same description → skipped
+    assert len(sb.db["requirements"]) == 2 + len(new)                       # the person's rows are untouched
+    assert [r["sort_order"] for r in new] == list(range(len(new)))
+
+
 def test_failure_is_recorded():
     sb = FakeSB()
     setup_ter(sb)

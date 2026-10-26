@@ -259,3 +259,31 @@ label.btn.disabled { opacity: 0.5; pointer-events: none; }
   .req-meta { justify-content: flex-start; }
   .ai-table th { width: auto; }
 }
+
+/* ---------------------------------------------------------------- week 4: review + checklist */
+.tabs { display: flex; gap: 4px; padding: 0 16px; border-bottom: 1px solid var(--line); }
+.tabs button { background: none; border: 0; border-bottom: 2px solid transparent; padding: 10px 10px 8px; cursor: pointer; font-weight: 500; color: var(--muted); display: inline-flex; gap: 6px; align-items: center; }
+.tabs button[aria-selected='true'] { color: var(--ink); border-bottom-color: var(--accent); }
+.tabs .count { font-family: var(--font-data); font-size: 11px; background: var(--warn-soft); color: var(--warn); border-radius: 10px; padding: 0 6px; }
+.section-head { display: flex; justify-content: space-between; align-items: center; gap: 8px; flex-wrap: wrap; margin-top: 6px; }
+.section-head .ai-sub { margin: 0; }
+.req-list li { grid-template-columns: minmax(0, 1fr) auto; }
+.req-list .req-actions { grid-column: 1 / -1; display: flex; gap: 6px; flex-wrap: wrap; }
+.req-list li.attention { background: var(--warn-soft); }
+.req-tag.plain { color: var(--muted); background: var(--sunken); font-weight: 500; }
+.check-list .check { display: flex; gap: 10px; align-items: flex-start; cursor: pointer; min-width: 0; }
+.check-list .check input { margin-top: 3px; width: 16px; height: 16px; accent-color: var(--accent); flex: none; }
+.check-list li.ticked .req-name { color: var(--muted); text-decoration: line-through; text-decoration-color: var(--line); }
+.check-summary { display: flex; gap: 24px; align-items: center; flex-wrap: wrap; }
+.check-summary > div { display: flex; flex-direction: column; }
+.check-summary b { font-size: 22px; font-weight: 500; line-height: 1.1; }
+.check-summary span { font-size: 12px; color: var(--muted); }
+.check-inline { display: flex; gap: 8px; align-items: center; font-size: 13.5px; }
+.quote-box { background: var(--sunken); border-radius: 6px; padding: 8px 12px; display: flex; flex-direction: column; gap: 2px; }
+.quote-box q { font-size: 13px; }
+.ok-text { color: var(--ok); }
+.req-meta { flex-wrap: wrap; }
+@media (max-width: 640px) {
+  .req-list li { grid-template-columns: minmax(0, 1fr); }
+  .check-list .req-meta { padding-left: 26px; }
+}

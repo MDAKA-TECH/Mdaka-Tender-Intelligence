@@ -41,6 +41,20 @@ Same setup as Student360.
       to its source page, confidence, and keyword-check / quote-not-found flags
 - [ ] Grow the test set towards 15-20 tenders (scope doc), incl. more scans
 
+### Week 4: Review screen, checklist and vault matching
+- [x] Review tab: AI items sorted so keyword-check, unverified and low-confidence items come first; each one
+      can be confirmed, edited or marked "Not required"; "Confirm all high-confidence" for the rest
+- [x] Add your own items; editing shows what the tender says (the quote) next to the fields
+- [x] "Fill tender details" copies the AI's key facts (reference, issuer, description, closing, briefing)
+      into the details form for you to check and save
+- [x] Checklist tab: tick documents as prepared; each one is matched to the vault (in vault, ready,
+      expires before closing, expired, missing) with an Upload/Replace shortcut
+- [x] Disqualifiers and other requirements listed separately; "not required" items can be restored
+- [x] Re-running the AI keeps everything you confirmed, edited, added or marked "not required", and does not
+      add those items back (`drop_already_decided` in `ai_job.py`)
+- [x] Tender list shows "N to review" or "x/y prepared" per tender
+- No new migration: week 4 uses the columns added in 0001 and 0003
+
 ## Set up
 
 1. Create a new Supabase project (separate from Student360).

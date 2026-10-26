@@ -110,7 +110,7 @@ function Shell({ user, company }: { user: AppUser; company: Company }) {
           {route.page === 'tenders' ? (
             <Tenders company={company} onOpen={(id) => go({ page: 'tender', id })} />
           ) : route.page === 'tender' ? (
-            <TenderDetail id={route.id} key={route.id} company={company} onBack={() => go({ page: 'tenders' })} />
+            <TenderDetail id={route.id} key={route.id} company={company} onBack={() => go({ page: 'tenders' })} onOpenVault={() => go({ page: 'vault' })} />
           ) : route.page === 'vault' ? (
             <Vault company={company} />
           ) : (

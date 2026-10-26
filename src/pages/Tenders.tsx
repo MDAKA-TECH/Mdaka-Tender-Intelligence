@@ -7,6 +7,7 @@ import { Modal, useToast } from '../components/ui';
 
 interface Row extends Tender {
   tender_files: { status: string }[];
+  requirements: { confirmed: boolean; status: string; kind: string }[];
 }
 
 export default function Tenders({ company, onOpen }: { company: Company; onOpen: (id: string) => void }) {
@@ -17,7 +18,7 @@ export default function Tenders({ company, onOpen }: { company: Company; onOpen:
   useEffect(() => {
     supabase
       .from('tenders')
-      .select('id, reference_no, entity, description, closing_at, briefing_at, briefing_compulsory, status, created_at, tender_files(status)')
+      .select('id, reference_no, entity, description, closing_at, briefing_at, briefing_compulsory, status, created_at, tender_files(status), requirements(confirmed, status, kind)')
       .order('closing_at', { ascending: true, nullsFirst: false })
       .then(({ data, error: e }) => (e ? setError(friendlyError(e)) : setRows(data as Row[])));
   }, []);
@@ -52,6 +53,7 @@ export default function Tenders({ company, onOpen }: { company: Company; onOpen:
                   <th>Issued by</th>
                   <th>Closing</th>
                   <th>Files</th>
+                  <th>Checklist</th>
                   <th>Status</th>
                 </tr>
               </thead>
@@ -83,6 +85,7 @@ export default function Tenders({ company, onOpen }: { company: Company; onOpen:
                         {done}/{t.tender_files.length} read
                         {failed > 0 && <div><span className="pill crit">{failed} failed</span></div>}
                       </td>
+                      <td><ChecklistCell reqs={t.requirements} /></td>
                       <td>
                         <span className={`pill ${t.status === 'won' ? 'ok' : t.status === 'lost' || t.status === 'not_bidding' ? 'plain' : 'accent'}`}>
                           {TENDER_STATUS_LABEL[t.status]}
@@ -209,4 +212,13 @@ function NewTenderModal({ companyId, onClose, onCreated }: { companyId: string; 
       </form>
     </Modal>
   );
+}
+
+function ChecklistCell({ reqs }: { reqs: Row['requirements'] }) {
+  const toReview = reqs.filter((r) => !r.confirmed).length;
+  const docs = reqs.filter((r) => r.confirmed && r.status !== 'not_applicable' && r.kind !== 'disqualifier' && r.kind !== 'special');
+  if (toReview) return <span className="pill warn">{toReview} to review</span>;
+  if (!docs.length) return <span className="muted">—</span>;
+  const done = docs.filter((r) => r.status === 'done').length;
+  return <span className={`mono ${done === docs.length ? 'ok-text' : ''}`}>{done}/{docs.length} prepared</span>;
 }

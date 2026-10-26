@@ -155,5 +155,6 @@ export interface Requirement {
   notes: string[];
   added_by: 'ai' | 'keyword_check' | 'user';
   confirmed: boolean;
+  status: 'todo' | 'done' | 'not_applicable';
   sort_order: number;
 }

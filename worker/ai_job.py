@@ -61,6 +61,27 @@ def requirement_rows(checked: dict, tender_id: str, company_id: str, file_ids: l
     return rows
 
 
+def _norm(text: str) -> str:
+    import re
+    return re.sub(r"[^a-z0-9]+", " ", (text or "").lower()).strip()
+
+
+def drop_already_decided(rows: list[dict], decided: list[dict]) -> list[dict]:
+    """Skip new AI rows a person already dealt with: confirmed, edited or marked "not required".
+    Same vault document type, or the same description, counts as the same item."""
+    seen_types = {(d.get("kind") == "disqualifier", d["doc_type"]) for d in decided if d.get("doc_type")}
+    seen_desc = {(d.get("kind") == "disqualifier", _norm(d.get("description", ""))) for d in decided}
+    out = []
+    for r in rows:
+        dq = r["kind"] == "disqualifier"
+        if (r.get("doc_type") and (dq, r["doc_type"]) in seen_types) or (dq, _norm(r["description"])) in seen_desc:
+            continue
+        out.append(r)
+    for i, r in enumerate(out):
+        r["sort_order"] = i
+    return out
+
+
 def ai_fields_payload(checked: dict, summary: dict, res: llm.LLMResult, files: list[dict], file_ids: list[str]) -> dict:
     return {
         "fields": {k: checked[k] for k in FIELD_KEYS},
@@ -80,6 +101,11 @@ def process_ai(sb, job: dict) -> None:
             raise ValueError("No readable PDFs for this tender. Upload or retry the files first.")
         checked, summary, res = extract_fields(files)
         rows = requirement_rows(checked, tid, company, file_ids)
+        decided = (sb.table("requirements").select("kind, description, doc_type")
+                   .eq("tender_id", tid).eq("confirmed", True).execute().data) or []
+        skipped = len(rows)
+        rows = drop_already_decided(rows, decided)
+        skipped -= len(rows)
 
         # Replace earlier unconfirmed AI rows; keep anything a person confirmed or added.
         (sb.table("requirements").delete().eq("tender_id", tid).eq("confirmed", False)
@@ -91,7 +117,8 @@ def process_ai(sb, job: dict) -> None:
             "ai_extracted_at": datetime.now(timezone.utc).isoformat(), "ai_file_ids": file_ids,
             "ai_fields": ai_fields_payload(checked, summary, res, files, file_ids),
         }).eq("id", tid).execute()
-        log.info("AI done for %s: %s requirements, %s low confidence, %.1fs", tid, len(rows), summary["low_confidence"], res.seconds)
+        log.info("AI done for %s: %s new requirements (%s already confirmed), %s low confidence, %.1fs",
+                 tid, len(rows), skipped, summary["low_confidence"], res.seconds)
     except Exception as e:  # noqa: BLE001 — record any failure on the tender
         msg = str(e) if isinstance(e, (ValueError, llm.LLMError)) else f"AI extraction failed ({e.__class__.__name__}): {e}"
         log.exception("AI failed for %s", tid)
