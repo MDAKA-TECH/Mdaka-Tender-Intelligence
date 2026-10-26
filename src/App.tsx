@@ -1,4 +1,4 @@
-import { useMemo, useState, type ReactNode } from 'react';
+import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { useAuth } from './lib/auth';
 import { supabaseConfigured } from './lib/supabase';
 import type { AppUser, Company } from './lib/types';
@@ -20,6 +20,16 @@ const NAV: { page: Page; label: string }[] = [
 ];
 
 let toastTimer = 0;
+
+// Hash routes, so links in reminder emails open the right page: #/tenders/<id>, #/vault, #/company.
+function parseHash(hash: string): Route {
+  const [, a, b] = hash.replace(/^#/, '').split('/');
+  if (a === 'tenders' && b && /^[0-9a-f-]{36}$/i.test(b)) return { page: 'tender', id: b };
+  if (a === 'vault') return { page: 'vault' };
+  if (a === 'company') return { page: 'company' };
+  return { page: 'tenders' };
+}
+const toHash = (r: Route) => (r.page === 'tender' ? `#/tenders/${r.id}` : `#/${r.page}`);
 
 export default function App() {
   const { ready, session, user, company, loadError, signOut } = useAuth();
@@ -62,10 +72,18 @@ function Centered({ children }: { children: ReactNode }) {
 
 function Shell({ user, company }: { user: AppUser; company: Company }) {
   const { signOut } = useAuth();
-  const [route, setRoute] = useState<Route>({ page: 'tenders' });
+  const [route, setRoute] = useState<Route>(() => parseHash(window.location.hash));
+  useEffect(() => {
+    const onHash = () => {
+      setRoute(parseHash(window.location.hash));
+      document.querySelector('.main')?.scrollTo(0, 0);
+    };
+    window.addEventListener('hashchange', onHash);
+    return () => window.removeEventListener('hashchange', onHash);
+  }, []);
   const go = (r: Route) => {
-    setRoute(r);
-    document.querySelector('.main')?.scrollTo(0, 0);
+    if (window.location.hash !== toHash(r)) window.location.hash = toHash(r);
+    else setRoute(r);
   };
   const active: Page = route.page === 'tender' ? 'tenders' : route.page;
   const [toastMsg, setToastMsg] = useState<string | null>(null);
@@ -108,9 +126,9 @@ function Shell({ user, company }: { user: AppUser; company: Company }) {
         </aside>
         <main className="main">
           {route.page === 'tenders' ? (
-            <Tenders company={company} onOpen={(id) => go({ page: 'tender', id })} />
+            <Tenders company={company} onOpen={(id) => go({ page: 'tender', id })} onOpenVault={() => go({ page: 'vault' })} />
           ) : route.page === 'tender' ? (
-            <TenderDetail id={route.id} key={route.id} company={company} onBack={() => go({ page: 'tenders' })} onOpenVault={() => go({ page: 'vault' })} />
+            <TenderDetail id={route.id} key={route.id} company={company} user={user} onBack={() => go({ page: 'tenders' })} onOpenVault={() => go({ page: 'vault' })} />
           ) : route.page === 'vault' ? (
             <Vault company={company} />
           ) : (

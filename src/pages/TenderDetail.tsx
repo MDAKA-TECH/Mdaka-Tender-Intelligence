@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState, type FormEvent } from 'react';
 import { friendlyError, supabase } from '../lib/supabase';
-import { TENDER_STATUS_LABEL, type Company, type PageText, type Requirement, type Tender, type TenderAi, type TenderFile, type TenderStatus } from '../lib/types';
+import { ACTIVE_STATUSES, TENDER_STATUS_LABEL, type AppUser, type AuditEntry, type Company, type PageText, type Reminder, type Requirement, type Tender, type TenderAi, type TenderFile, type TenderStatus } from '../lib/types';
 import ReviewPanel, { type DetailsPrefill } from '../components/ReviewPanel';
 import type { VaultDoc } from '../lib/vault';
 import { closingIn, fmtDateTime, fmtSize, fromLocalInput, toLocalInput } from '../lib/dates';
@@ -12,8 +12,9 @@ const POLL_MS = 4000;
 const AI_COLS = 'ai_status, ai_error, ai_model, ai_extracted_at, ai_claimed_at, ai_file_ids, ai_fields';
 const REQ_COLS = 'id, kind, description, doc_type, mandatory, conditions, source_file_id, source_page, confidence, quote, verified, notes, added_by, confirmed, status, sort_order';
 const WORKER_HINT_AFTER_MS = 2 * 60 * 1000;
+const TENDER_COLS = 'id, reference_no, entity, description, closing_at, briefing_at, briefing_compulsory, submission_method, status, created_at';
 
-export default function TenderDetail({ id, company, onBack, onOpenVault }: { id: string; company: Company; onBack: () => void; onOpenVault: () => void }) {
+export default function TenderDetail({ id, company, user, onBack, onOpenVault }: { id: string; company: Company; user: AppUser; onBack: () => void; onOpenVault: () => void }) {
   const toast = useToast();
   const [tender, setTender] = useState<Tender | null>(null);
   const [files, setFiles] = useState<TenderFile[] | null>(null);
@@ -26,6 +27,10 @@ export default function TenderDetail({ id, company, onBack, onOpenVault }: { id:
   const [removingFile, setRemovingFile] = useState<TenderFile | null>(null);
   const [removingTender, setRemovingTender] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [confirmSubmit, setConfirmSubmit] = useState<{ openMandatory: number; toReview: number } | null>(null);
+  const [savingStatus, setSavingStatus] = useState(false);
+  const [exporting, setExporting] = useState(false);
+  const [rev, setRev] = useState(0); // bump to reload reminders + activity
 
   const loadFiles = useCallback(async () => {
     const { data, error: e } = await supabase.from('tender_files').select(FILE_COLS).eq('tender_id', id).order('created_at');
@@ -37,6 +42,7 @@ export default function TenderDetail({ id, company, onBack, onOpenVault }: { id:
     const { data, error: e } = await supabase.from('requirements').select(REQ_COLS).eq('tender_id', id).order('sort_order');
     if (e) return toast(friendlyError(e));
     setReqs((data as Requirement[]) ?? []);
+    setRev((n) => n + 1);
   }, [id, toast]);
 
   const loadAi = useCallback(async () => {
@@ -63,7 +69,7 @@ export default function TenderDetail({ id, company, onBack, onOpenVault }: { id:
     loadAi();
     supabase
       .from('tenders')
-      .select('id, reference_no, entity, description, closing_at, briefing_at, briefing_compulsory, status, created_at')
+      .select(TENDER_COLS)
       .eq('id', id)
       .maybeSingle()
       .then(({ data, error: e }) => (e ? setError(friendlyError(e)) : data ? setTender(data as Tender) : setError('This tender no longer exists.')));
@@ -115,6 +121,41 @@ export default function TenderDetail({ id, company, onBack, onOpenVault }: { id:
     loadFiles();
   };
 
+  const saveStatus = async (next: TenderStatus) => {
+    if (!tender) return;
+    setSavingStatus(true);
+    const { data, error: e } = await supabase.from('tenders').update({ status: next }).eq('id', tender.id).select(TENDER_COLS).single();
+    setSavingStatus(false);
+    setConfirmSubmit(null);
+    if (e || !data) return toast(friendlyError(e));
+    setTender(data as Tender);
+    setRev((n) => n + 1);
+    toast(ACTIVE_STATUSES.includes(next) ? `Status: ${TENDER_STATUS_LABEL[next]}.` : `Marked as ${TENDER_STATUS_LABEL[next]}. Reminders for this tender are off.`);
+  };
+
+  const changeStatus = (next: TenderStatus) => {
+    if (next === 'submitted') {
+      const docs = reqs.filter((r) => r.confirmed && r.status === 'todo' && r.kind !== 'disqualifier' && r.kind !== 'special');
+      const openMandatory = docs.filter((r) => r.mandatory).length;
+      const toReview = reqs.filter((r) => !r.confirmed).length;
+      if (openMandatory || toReview) return setConfirmSubmit({ openMandatory, toReview });
+    }
+    saveStatus(next);
+  };
+
+  const exportPdf = async () => {
+    if (!tender) return;
+    setExporting(true);
+    try {
+      const m = await import('../lib/exportPdf');
+      m.exportChecklistPdf({ tender, companyName: company.name, userName: user.name, reqs, vault, ai: ai?.ai_fields ?? null });
+    } catch (e) {
+      toast(`Couldn't create the PDF: ${e instanceof Error ? e.message : String(e)}`);
+    } finally {
+      setExporting(false);
+    }
+  };
+
   const openPdf = async (f: TenderFile) => {
     const { data, error: e } = await supabase.storage.from(TENDER_BUCKET).createSignedUrl(f.file_path, 60);
     if (e || !data) return toast(friendlyError(e));
@@ -142,7 +183,16 @@ export default function TenderDetail({ id, company, onBack, onOpenVault }: { id:
             {c && ['reviewing', 'preparing'].includes(tender.status) && <> <span className={`pill ${c.tone}`}>{c.label}</span></>}
           </p>
         </div>
-        <button className="btn danger" onClick={() => setRemovingTender(true)}>Delete tender</button>
+        <div className="head-actions">
+          <label className="status-pick">
+            <span className="small muted">Status</span>
+            <select className="select" value={tender.status} disabled={savingStatus} onChange={(e) => changeStatus(e.target.value as TenderStatus)} aria-label="Tender status">
+              {(Object.keys(TENDER_STATUS_LABEL) as TenderStatus[]).map((s) => <option key={s} value={s}>{TENDER_STATUS_LABEL[s]}</option>)}
+            </select>
+          </label>
+          <button className="btn" onClick={exportPdf} disabled={exporting}>{exporting ? 'Preparing PDF…' : 'Export PDF'}</button>
+          <button className="btn danger" onClick={() => setRemovingTender(true)}>Delete tender</button>
+        </div>
       </div>
 
       <div className="grid g-3-1">
@@ -195,7 +245,10 @@ export default function TenderDetail({ id, company, onBack, onOpenVault }: { id:
           )}
         </section>
 
-        <DetailsForm tender={tender} prefill={prefill} onSaved={(t) => { setTender(t); setPrefill(null); toast('Details saved.'); }} />
+        <div className="side-col">
+          <DetailsForm tender={tender} prefill={prefill} onSaved={(t) => { setTender(t); setPrefill(null); setRev((n) => n + 1); toast('Details saved.'); }} />
+          <RemindersCard tender={tender} user={user} rev={rev} />
+        </div>
       </div>
 
       {ai && (
@@ -218,6 +271,27 @@ export default function TenderDetail({ id, company, onBack, onOpenVault }: { id:
             else toast('That file is no longer available.');
           }}
         />
+      )}
+
+      <Activity tenderId={tender.id} rev={rev} />
+
+      {confirmSubmit && (
+        <Modal
+          title="Mark as submitted?"
+          onClose={() => setConfirmSubmit(null)}
+          footer={
+            <>
+              <button className="btn" onClick={() => setConfirmSubmit(null)} disabled={savingStatus}>Keep preparing</button>
+              <button className="btn primary" onClick={() => saveStatus('submitted')} disabled={savingStatus}>{savingStatus ? 'Saving…' : 'Mark as submitted'}</button>
+            </>
+          }
+        >
+          <ul className="plain-list">
+            {confirmSubmit.openMandatory > 0 && <li><b>{confirmSubmit.openMandatory} mandatory document{confirmSubmit.openMandatory > 1 ? 's are' : ' is'} not ticked</b> on the checklist.</li>}
+            {confirmSubmit.toReview > 0 && <li><b>{confirmSubmit.toReview} item{confirmSubmit.toReview > 1 ? 's' : ''} from the AI {confirmSubmit.toReview > 1 ? 'were' : 'was'} never reviewed.</b></li>}
+          </ul>
+          <p style={{ marginBottom: 0 }}>If the bid has gone in, mark it as submitted. Reminders for this tender will stop.</p>
+        </Modal>
       )}
 
       {viewing && <TextViewer file={viewing.file} initialPage={viewing.page} initialQuery={viewing.query} onClose={() => setViewing(null)} />}
@@ -272,7 +346,6 @@ function DetailsForm({ tender, prefill, onSaved }: { tender: Tender; prefill: { 
   const [closing, setClosing] = useState(toLocalInput(tender.closing_at));
   const [briefing, setBriefing] = useState(toLocalInput(tender.briefing_at));
   const [compulsory, setCompulsory] = useState(tender.briefing_compulsory ? 'yes' : tender.briefing_compulsory === false ? 'no' : '');
-  const [status, setStatus] = useState<TenderStatus>(tender.status);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
@@ -301,10 +374,9 @@ function DetailsForm({ tender, prefill, onSaved }: { tender: Tender; prefill: { 
         closing_at: fromLocalInput(closing),
         briefing_at: fromLocalInput(briefing),
         briefing_compulsory: compulsory === '' ? null : compulsory === 'yes',
-        status,
       })
       .eq('id', tender.id)
-      .select('id, reference_no, entity, description, closing_at, briefing_at, briefing_compulsory, status, created_at')
+      .select(TENDER_COLS)
       .single();
     setBusy(false);
     if (e || !data) return setError(friendlyError(e));
@@ -322,12 +394,6 @@ function DetailsForm({ tender, prefill, onSaved }: { tender: Tender; prefill: { 
             {prefill.p.notes.map((n) => <span key={n} style={{ display: 'block', marginTop: 4 }}>{n}</span>)}
           </div>
         )}
-        <label className="field">
-          <span>Status</span>
-          <select className="select" value={status} onChange={(e) => setStatus(e.target.value as TenderStatus)}>
-            {(Object.keys(TENDER_STATUS_LABEL) as TenderStatus[]).map((s) => <option key={s} value={s}>{TENDER_STATUS_LABEL[s]}</option>)}
-          </select>
-        </label>
         <label className="field"><span>Reference number</span><input className="input" value={ref} onChange={(e) => setRef(e.target.value)} maxLength={80} /></label>
         <label className="field"><span>Issued by</span><input className="input" value={entity} onChange={(e) => setEntity(e.target.value)} maxLength={200} /></label>
         <label className="field"><span>Short description</span><input className="input" value={desc} onChange={(e) => setDesc(e.target.value)} maxLength={300} /></label>
@@ -345,6 +411,121 @@ function DetailsForm({ tender, prefill, onSaved }: { tender: Tender; prefill: { 
         <div><button className="btn primary" type="submit" disabled={busy}>{busy ? 'Saving…' : 'Save details'}</button></div>
       </div>
     </form>
+  );
+}
+
+// ---------------------------------------------------------------- reminders
+
+const REMINDER_LABEL: Record<string, string> = { closing: 'Closing date', briefing: 'Briefing', query_deadline: 'Question deadline', doc_expiry: 'Document expiry' };
+
+function RemindersCard({ tender, user, rev }: { tender: Tender; user: AppUser; rev: number }) {
+  const [rows, setRows] = useState<Reminder[] | null>(null);
+  useEffect(() => {
+    supabase
+      .from('reminders')
+      .select('id, kind, remind_at, sent_at, outcome, last_error')
+      .eq('tender_id', tender.id)
+      .order('remind_at')
+      .then(({ data }) => setRows((data as Reminder[]) ?? []));
+  }, [tender.id, rev]);
+
+  const upcoming = rows?.filter((r) => !r.sent_at) ?? [];
+  const sent = rows?.filter((r) => r.outcome === 'sent') ?? [];
+  const failed = rows?.filter((r) => r.outcome === 'failed') ?? [];
+  const active = ACTIVE_STATUSES.includes(tender.status);
+
+  return (
+    <section className="panel" aria-labelledby="rem-head">
+      <div className="panel-head"><h2 id="rem-head">Email reminders</h2></div>
+      <div className="panel-body rem-body">
+        {!rows ? (
+          <p className="muted">Loading…</p>
+        ) : !active ? (
+          <p className="muted">None: this tender is {TENDER_STATUS_LABEL[tender.status]}.</p>
+        ) : !user.email_reminders ? (
+          <p className="muted">Reminders are off for your account. Turn them on under Company profile.</p>
+        ) : upcoming.length === 0 ? (
+          <p className="muted">{tender.closing_at ? 'Nothing left to send before closing.' : 'Add the closing date to get reminders.'}</p>
+        ) : (
+          <>
+            <ul className="rem-list">
+              {upcoming.map((r) => (
+                <li key={r.id}>
+                  <span className="mono">{fmtDateTime(r.remind_at)}</span>
+                  <span>{REMINDER_LABEL[r.kind] ?? r.kind}</span>
+                </li>
+              ))}
+            </ul>
+            <p className="small muted">Sent to {user.email}.</p>
+          </>
+        )}
+        {(sent.length > 0 || failed.length > 0) && (
+          <p className="small muted">
+            {sent.length > 0 && `${sent.length} sent. `}
+            {failed.length > 0 && <span className="crit-text">{failed.length} couldn't be sent{failed[0].last_error ? `: ${failed[0].last_error}` : ''}.</span>}
+          </p>
+        )}
+      </div>
+    </section>
+  );
+}
+
+// ---------------------------------------------------------------- activity
+
+const STATUS_WORD = TENDER_STATUS_LABEL as Record<string, string>;
+
+function activityText(a: AuditEntry): string {
+  const q = a.subject ? `"${a.subject}"` : 'an item';
+  const d = a.details as Record<string, unknown>;
+  switch (a.action) {
+    case 'created': return 'created the tender';
+    case 'added': return `added ${q}`;
+    case 'confirmed': return `confirmed ${q}`;
+    case 'edited': return `edited ${q}`;
+    case 'ticked': return `ticked ${q} as prepared`;
+    case 'unticked': return `unticked ${q}`;
+    case 'not_required': return `marked ${q} as not required`;
+    case 'restored': return `restored ${q}`;
+    case 'deleted': return `deleted ${q}`;
+    case 'status': return `changed the status from ${STATUS_WORD[String(d.from)] ?? d.from} to ${STATUS_WORD[String(d.to)] ?? d.to}`;
+    case 'details': {
+      const parts: string[] = [];
+      if (d.closing_at) {
+        const to = (d.closing_at as (string | null)[])[1];
+        parts.push(to ? `the closing date to ${fmtDateTime(to)}` : 'the closing date (cleared)');
+      }
+      if (d.briefing_at || d.briefing_compulsory) parts.push('the briefing');
+      if (d.details) parts.push('the tender details');
+      return `changed ${parts.length > 1 ? `${parts.slice(0, -1).join(', ')} and ${parts[parts.length - 1]}` : parts[0] ?? 'the tender details'}`;
+    }
+    default: return a.action;
+  }
+}
+
+function Activity({ tenderId, rev }: { tenderId: string; rev: number }) {
+  const [rows, setRows] = useState<AuditEntry[] | null>(null);
+  useEffect(() => {
+    supabase
+      .from('audit_log')
+      .select('id, action, subject, details, created_at, users(name)')
+      .eq('tender_id', tenderId)
+      .order('id', { ascending: false })
+      .limit(100)
+      .then(({ data }) => setRows((data as unknown as AuditEntry[]) ?? []));
+  }, [tenderId, rev]);
+  if (!rows || rows.length === 0) return null;
+  return (
+    <details className="panel activity">
+      <summary className="panel-head"><h2>Activity</h2><span className="small muted">{rows.length} change{rows.length > 1 ? 's' : ''} by your team</span></summary>
+      <ul className="activity-list">
+        {rows.map((a) => (
+          <li key={a.id}>
+            <span className="mono small muted">{fmtDateTime(a.created_at)}</span>
+            <span><b>{a.users?.name ?? 'Someone'}</b> {activityText(a)}</span>
+          </li>
+        ))}
+      </ul>
+    </details>
   );
 }
 

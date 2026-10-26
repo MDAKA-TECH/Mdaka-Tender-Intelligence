@@ -55,11 +55,27 @@ Same setup as Student360.
 - [x] Tender list shows "N to review" or "x/y prepared" per tender
 - No new migration: week 4 uses the columns added in 0001 and 0003
 
+### Week 5: Reminders, tender list, PDF export
+- [x] Email reminders (migration 0004 + `send-reminders` Edge Function + Resend): closing dates 7 and 2 days
+      before and on the day, briefings 2 days before and on the day (unless optional), vault documents 30, 7
+      and 1 day before expiry. One digest email per company, about 08:00 SAST
+- [x] Reminders follow the tender: changing dates reschedules them; Submitted / Won / Lost / Not bidding
+      stops them. Stale ones (event passed, replaced vault document, more than a day late) are skipped
+- [x] Company profile: reminders on/off and "Send test email"; tender page shows the scheduled reminders
+- [x] Tender list: status tabs with counts, search, "Coming up" (next 14 days + expiring vault documents),
+      "Closed: update status" flag
+- [x] Status control on the tender page; marking Submitted warns about unticked mandatory documents
+      and unreviewed AI items
+- [x] Export PDF: checklist with tick boxes, vault status, sources, disqualifiers, key facts, unreviewed
+      items and a disclaimer
+- [x] Activity log (`audit_log`): who confirmed, ticked, edited or deleted what, and status/date changes
+- [x] Links in emails open the right page (`#/tenders/<id>`, `#/vault`)
+
 ## Set up
 
 1. Create a new Supabase project (separate from Student360).
 2. Supabase → SQL Editor → run each file in `supabase/migrations/` in order
-   (`0001_foundations.sql`, `0002_ingestion.sql`, then `0003_ai_extraction.sql`).
+   (`0001_foundations.sql`, `0002_ingestion.sql`, `0003_ai_extraction.sql`, then `0004_reminders.sql`).
 3. Supabase → Authentication → URL Configuration: set Site URL to `http://localhost:5173`
    (add your Vercel URL later). Email confirmation is on by default; keep it on.
 4. Copy `.env.example` to `.env.local` and fill in the project URL and anon key
@@ -119,6 +135,36 @@ pipeline and checks that an invented closing time, a missed form and a fake quot
 `python tests/test_ai_job.py` runs the worker's AI step against an in-memory database.
 
 Cost guide: about 9k input and 3k output tokens per 10-page RFQ.
+
+## Email reminders (set up once)
+
+Reminder rows are created by the database (migration 0004). The `send-reminders` Edge Function sends
+them with [Resend](https://resend.com); Supabase's pg_cron calls it every hour.
+
+1. **Resend.** Sign up, then Domains → Add domain → `mdakatech.com` (region: Ireland). Add the DNS
+   records Resend shows in Vercel → Domains → mdakatech.com → DNS. They go on the `send` subdomain and
+   `resend._domainkey`, so existing email for the domain is not affected. Wait for "Verified", then
+   API Keys → Create (sending access only).
+   Until the domain is verified, use `onboarding@resend.dev` as the sender; it only delivers to the
+   email address of your Resend account.
+2. **A cron secret.** `node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"`
+3. **Deploy the function** (from the project folder; type the secrets in your terminal, never in chat or a file in the repo):
+   ```
+   npx supabase login
+   npx supabase functions deploy send-reminders --project-ref qwpovznioeicizixdpqa --use-api
+   npx supabase secrets set --project-ref qwpovznioeicizixdpqa RESEND_API_KEY=re_xxx CRON_SECRET=xxx APP_URL=http://localhost:5173 "REMINDER_FROM=Tender Intelligence <reminders@mdakatech.com>"
+   ```
+   `supabase/config.toml` turns off the gateway's JWT check for this function; the function checks the
+   cron secret (hourly run) or the signed-in user's token (test email) itself. Change `APP_URL` to the
+   Vercel URL once the app is deployed.
+4. **Test.** In the app: Company profile → Send test email.
+5. **Schedule.** SQL Editor: run the `vault.create_secret(...)` line from `supabase/cron_send_reminders.sql`
+   with your cron secret, clear it from the editor, then run the rest of that file.
+6. **Check.** `select kind, remind_at, outcome, last_error from reminders order by remind_at desc limit 20;`
+   Function logs: Supabase → Edge Functions → send-reminders → Logs.
+
+Tests: `deno test --allow-env --allow-read --allow-net supabase/functions/send-reminders/` (run it from
+a folder without `node_modules`, or copy the function folder out first).
 
 ## Deploy (Vercel)
 

@@ -29,7 +29,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setCompany(null);
       return;
     }
-    const { data: u, error } = await supabase.from('users').select('id, company_id, email, name').eq('id', s.user.id).maybeSingle();
+    const { data: u, error } = await supabase.from('users').select('id, company_id, email, name, email_reminders').eq('id', s.user.id).maybeSingle();
     if (error) return setLoadError(friendlyError(error));
     setUser(u);
     if (!u) return setCompany(null);

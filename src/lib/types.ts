@@ -20,6 +20,7 @@ export interface AppUser {
   company_id: string;
   email: string;
   name: string;
+  email_reminders: boolean;
 }
 
 export interface CompanyDocument {
@@ -78,8 +79,32 @@ export interface Tender {
   closing_at: string | null;
   briefing_at: string | null;
   briefing_compulsory: boolean | null;
+  submission_method?: string | null;
   status: TenderStatus;
   created_at: string;
+}
+
+export const ACTIVE_STATUSES: TenderStatus[] = ['reviewing', 'preparing'];
+
+// ---------------------------------------------------------------- reminders + activity (week 5)
+export type ReminderKind = 'briefing' | 'closing' | 'query_deadline' | 'doc_expiry';
+
+export interface Reminder {
+  id: string;
+  kind: ReminderKind;
+  remind_at: string;
+  sent_at: string | null;
+  outcome: 'sent' | 'skipped' | 'failed' | null;
+  last_error: string | null;
+}
+
+export interface AuditEntry {
+  id: number;
+  action: string;
+  subject: string | null;
+  details: Record<string, unknown>;
+  created_at: string;
+  users: { name: string } | null;
 }
 
 export interface TenderFile {

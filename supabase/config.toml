@@ -1,0 +1,6 @@
+# Minimal Supabase CLI config, used when deploying Edge Functions.
+project_id = "tender-intel"
+
+[functions.send-reminders]
+# The function checks the cron secret or the signed-in user's token itself.
+verify_jwt = false

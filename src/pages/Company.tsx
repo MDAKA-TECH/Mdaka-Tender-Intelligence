@@ -69,6 +69,71 @@ export default function CompanyPage({ company, user }: { company: Company; user:
           </div>
         </div>
       </form>
+
+      <Notifications user={user} onChanged={reload} />
     </div>
+  );
+}
+
+function Notifications({ user, onChanged }: { user: AppUser; onChanged: () => Promise<void> }) {
+  const toast = useToast();
+  const [on, setOn] = useState(user.email_reminders);
+  const [saving, setSaving] = useState(false);
+  const [testing, setTesting] = useState(false);
+  const [result, setResult] = useState<{ ok: boolean; text: string } | null>(null);
+
+  const toggle = async (next: boolean) => {
+    setOn(next);
+    setSaving(true);
+    const { error } = await supabase.from('users').update({ email_reminders: next }).eq('id', user.id);
+    setSaving(false);
+    if (error) {
+      setOn(!next);
+      return toast(friendlyError(error));
+    }
+    toast(next ? 'Email reminders on.' : 'Email reminders off.');
+    await onChanged();
+  };
+
+  const sendTest = async () => {
+    setTesting(true);
+    setResult(null);
+    const { data, error } = await supabase.functions.invoke('send-reminders', { body: { mode: 'test' } });
+    setTesting(false);
+    if (error) {
+      // The function's own message is in the response body.
+      let text = error.message;
+      try {
+        const body = await (error as { context?: Response }).context?.json();
+        if (body?.error) text = body.error;
+      } catch {
+        /* keep the generic message */
+      }
+      if (/Failed to send a request|FunctionsFetchError/i.test(text)) text = 'The send-reminders function is not deployed yet (see the README, week 5).';
+      return setResult({ ok: false, text });
+    }
+    setResult({ ok: true, text: `Test email sent to ${data.sent_to}. Check your inbox (and spam folder).` });
+  };
+
+  return (
+    <section className="panel" aria-labelledby="notif-head">
+      <div className="panel-head"><h2 id="notif-head">Email reminders</h2></div>
+      <div className="panel-body" style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+        <label className="check-inline">
+          <input type="checkbox" checked={on} disabled={saving} onChange={(e) => toggle(e.target.checked)} />
+          Email me deadline reminders at <b>{user.email}</b>
+        </label>
+        <ul className="plain-list small muted">
+          <li>Closing dates: 7 days before, 2 days before, and on the morning of the closing day</li>
+          <li>Briefings: 2 days before and on the morning (unless marked optional)</li>
+          <li>Vault documents: 30, 7 and 1 day before they expire</li>
+          <li>Only for tenders that are Reviewing or Preparing. Emails go out at about 08:00 (South African time).</li>
+        </ul>
+        <div>
+          <button className="btn" onClick={sendTest} disabled={testing || !on}>{testing ? 'Sending…' : 'Send test email'}</button>
+        </div>
+        {result && <div className={`callout ${result.ok ? 'ok' : 'crit'}`}>{result.text}</div>}
+      </div>
+    </section>
   );
 }

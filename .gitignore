@@ -8,3 +8,6 @@ worker/.venv
 __pycache__
 *.pyc
 test-set/results/
+supabase/.temp
+supabase/.branches
+supabase/functions/.env
