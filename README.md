@@ -35,14 +35,17 @@ Same setup as Student360.
 - [x] Parallel OCR with progress, cached for evaluation runs
 - [x] `evaluate.py` gate: **4/4 tenders pass** (Parliament RFQ 906 + 907, Transport Economic Regulator 4-file pack,
       Limpopo DPWRI 56-page scanned tender)
-- [ ] Worker runs extraction after a tender's PDFs are read and saves results for the week 4 review screen
+- [x] Worker runs AI extraction automatically once all of a tender's PDFs are read (later runs on request:
+      "Re-run"), saving tender facts and unconfirmed requirement rows (`ai_job.py`, migration 0003)
+- [x] Tender page shows the AI results (unconfirmed): key facts, documents, disqualifiers, each with a link
+      to its source page, confidence, and keyword-check / quote-not-found flags
 - [ ] Grow the test set towards 15-20 tenders (scope doc), incl. more scans
 
 ## Set up
 
 1. Create a new Supabase project (separate from Student360).
 2. Supabase → SQL Editor → run each file in `supabase/migrations/` in order
-   (`0001_foundations.sql`, then `0002_ingestion.sql`).
+   (`0001_foundations.sql`, `0002_ingestion.sql`, then `0003_ai_extraction.sql`).
 3. Supabase → Authentication → URL Configuration: set Site URL to `http://localhost:5173`
    (add your Vercel URL later). Email confirmation is on by default; keep it on.
 4. Copy `.env.example` to `.env.local` and fill in the project URL and anon key
@@ -63,6 +66,9 @@ pip install -r requirements.txt
 copy .env.example .env      # then paste the service_role key into worker\.env
 python worker.py            # leave running; Ctrl+C to stop
 ```
+
+With `LLM_PROVIDER` and its API key set in `worker\.env`, the same worker also runs AI extraction:
+it prints `AI extraction on (gemini)` when it starts. Without them it only reads the PDFs.
 
 `python worker.py --once` processes whatever is waiting and exits. `python extract.py file.pdf`
 tests extraction on a local file without Supabase.
@@ -96,6 +102,7 @@ wrong at medium/high, none missed); all other fields 90%+ correct.
 
 **Tests (no API key needed):** `python tests/test_pipeline.py` plays simulated answers through the
 pipeline and checks that an invented closing time, a missed form and a fake quote all fail the gate.
+`python tests/test_ai_job.py` runs the worker's AI step against an in-memory database.
 
 Cost guide: about 9k input and 3k output tokens per 10-page RFQ.
 

@@ -1,12 +1,15 @@
 import { useCallback, useEffect, useMemo, useState, type FormEvent } from 'react';
 import { friendlyError, supabase } from '../lib/supabase';
-import { TENDER_STATUS_LABEL, type Company, type PageText, type Tender, type TenderFile, type TenderStatus } from '../lib/types';
+import { TENDER_STATUS_LABEL, type Company, type PageText, type Requirement, type Tender, type TenderAi, type TenderFile, type TenderStatus } from '../lib/types';
+import AiPanel from '../components/AiPanel';
 import { closingIn, fmtDateTime, fmtSize, fromLocalInput, toLocalInput } from '../lib/dates';
 import { TENDER_BUCKET, checkPdf, uploadTenderFiles } from '../lib/tenderFiles';
 import { Modal, useToast } from '../components/ui';
 
 const FILE_COLS = 'id, tender_id, file_path, file_name, file_size, status, error, page_count, ocr_used, ocr_pages, extracted_at, created_at';
 const POLL_MS = 4000;
+const AI_COLS = 'ai_status, ai_error, ai_model, ai_extracted_at, ai_claimed_at, ai_file_ids, ai_fields';
+const REQ_COLS = 'id, kind, description, doc_type, mandatory, conditions, source_file_id, source_page, confidence, quote, verified, notes, added_by, confirmed, sort_order';
 const WORKER_HINT_AFTER_MS = 2 * 60 * 1000;
 
 export default function TenderDetail({ id, company, onBack }: { id: string; company: Company; onBack: () => void }) {
@@ -14,7 +17,9 @@ export default function TenderDetail({ id, company, onBack }: { id: string; comp
   const [tender, setTender] = useState<Tender | null>(null);
   const [files, setFiles] = useState<TenderFile[] | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [viewing, setViewing] = useState<TenderFile | null>(null);
+  const [viewing, setViewing] = useState<{ file: TenderFile; page?: number; query?: string } | null>(null);
+  const [ai, setAi] = useState<TenderAi | null>(null);
+  const [reqs, setReqs] = useState<Requirement[] | null>(null);
   const [removingFile, setRemovingFile] = useState<TenderFile | null>(null);
   const [removingTender, setRemovingTender] = useState(false);
   const [uploading, setUploading] = useState(false);
@@ -25,7 +30,27 @@ export default function TenderDetail({ id, company, onBack }: { id: string; comp
     setFiles(data as TenderFile[]);
   }, [id]);
 
+  const loadAi = useCallback(async () => {
+    const { data, error: e } = await supabase.from('tenders').select(AI_COLS).eq('id', id).maybeSingle();
+    if (e || !data) return;
+    const next = data as TenderAi;
+    setAi((prev) => {
+      // Fetch the requirement rows only when a run has finished (or a newer one has).
+      if (next.ai_status === 'done' && next.ai_extracted_at !== prev?.ai_extracted_at) {
+        supabase
+          .from('requirements')
+          .select(REQ_COLS)
+          .eq('tender_id', id)
+          .in('added_by', ['ai', 'keyword_check'])
+          .order('sort_order')
+          .then(({ data: r }) => setReqs((r as Requirement[]) ?? []));
+      }
+      return next;
+    });
+  }, [id]);
+
   useEffect(() => {
+    loadAi();
     supabase
       .from('tenders')
       .select('id, reference_no, entity, description, closing_at, briefing_at, briefing_compulsory, status, created_at')
@@ -33,15 +58,26 @@ export default function TenderDetail({ id, company, onBack }: { id: string; comp
       .maybeSingle()
       .then(({ data, error: e }) => (e ? setError(friendlyError(e)) : data ? setTender(data as Tender) : setError('This tender no longer exists.')));
     loadFiles();
-  }, [id, loadFiles]);
+  }, [id, loadFiles, loadAi]);
 
-  // Poll while the worker still has files to read.
-  const pending = files?.some((f) => f.status === 'queued' || f.status === 'extracting') ?? false;
+  // Poll while the worker still has files to read or an AI run to do.
+  const filesPending = files?.some((f) => f.status === 'queued' || f.status === 'extracting') ?? false;
+  const pending = filesPending || ai?.ai_status === 'queued' || ai?.ai_status === 'running';
   useEffect(() => {
     if (!pending) return;
-    const t = window.setInterval(loadFiles, POLL_MS);
+    const t = window.setInterval(() => {
+      loadFiles();
+      loadAi();
+    }, POLL_MS);
     return () => window.clearInterval(t);
-  }, [pending, loadFiles]);
+  }, [pending, loadFiles, loadAi]);
+
+  const runAi = async () => {
+    const { error: e } = await supabase.from('tenders').update({ ai_status: 'queued' }).eq('id', id);
+    if (e) return toast(friendlyError(e));
+    toast('Queued for AI extraction.');
+    loadAi();
+  };
 
   const stuck = files?.some((f) => f.status === 'queued' && Date.now() - new Date(f.created_at).getTime() > WORKER_HINT_AFTER_MS);
   const totals = useMemo(() => {
@@ -132,7 +168,7 @@ export default function TenderDetail({ id, company, onBack }: { id: string; comp
                   </div>
                   <div className="actions">
                     <ExtractionPill status={f.status} />
-                    {f.status === 'done' && <button className="btn" onClick={() => setViewing(f)}>View text</button>}
+                    {f.status === 'done' && <button className="btn" onClick={() => setViewing({ file: f })}>View text</button>}
                     {f.status === 'failed' && <button className="btn" onClick={() => retry(f)}>Retry</button>}
                     <button className="btn" onClick={() => openPdf(f)}>Open PDF</button>
                     <button className="btn danger" onClick={() => setRemovingFile(f)}>Delete</button>
@@ -144,7 +180,7 @@ export default function TenderDetail({ id, company, onBack }: { id: string; comp
           {totals.done > 0 && (
             <div className="panel-foot small muted">
               {totals.pages} pages read from {totals.done} file{totals.done > 1 ? 's' : ''}
-              {totals.ocr > 0 && `, ${totals.ocr} by OCR`}. Requirement extraction arrives in week 3.
+              {totals.ocr > 0 && `, ${totals.ocr} by OCR`}.
             </div>
           )}
         </section>
@@ -152,7 +188,21 @@ export default function TenderDetail({ id, company, onBack }: { id: string; comp
         <DetailsForm tender={tender} onSaved={(t) => { setTender(t); toast('Details saved.'); }} />
       </div>
 
-      {viewing && <TextViewer file={viewing} onClose={() => setViewing(null)} />}
+      {ai && (
+        <AiPanel
+          ai={ai}
+          reqs={reqs}
+          files={files}
+          onRun={runAi}
+          onOpenSource={(fileId, page, quote) => {
+            const f = files.find((x) => x.id === fileId);
+            if (f && f.status === 'done') setViewing({ file: f, page: page ?? undefined, query: quote ?? undefined });
+            else toast('That file is no longer available.');
+          }}
+        />
+      )}
+
+      {viewing && <TextViewer file={viewing.file} initialPage={viewing.page} initialQuery={viewing.query} onClose={() => setViewing(null)} />}
       {removingFile && (
         <ConfirmModal
           title="Delete file?"
@@ -263,11 +313,12 @@ function DetailsForm({ tender, onSaved }: { tender: Tender; onSaved: (t: Tender)
 
 // ---------------------------------------------------------------- text viewer
 
-function TextViewer({ file, onClose }: { file: TenderFile; onClose: () => void }) {
+function TextViewer({ file, initialPage, initialQuery, onClose }: { file: TenderFile; initialPage?: number; initialQuery?: string; onClose: () => void }) {
   const [pages, setPages] = useState<PageText[] | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [page, setPage] = useState(1);
-  const [q, setQ] = useState('');
+  const [page, setPage] = useState(initialPage ?? 1);
+  // From a source link: search for the start of the quote, so it's highlighted on the page.
+  const [q, setQ] = useState(initialQuery ? initialQuery.split(/\s+/).slice(0, 5).join(' ') : '');
 
   useEffect(() => {
     supabase

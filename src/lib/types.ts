@@ -102,3 +102,58 @@ export interface PageText {
   text: string;
   ocr?: boolean;
 }
+
+// ---------------------------------------------------------------- AI extraction (week 3)
+export type AiStatus = 'none' | 'queued' | 'running' | 'done' | 'failed';
+export type Confidence = 'high' | 'medium' | 'low';
+
+export interface AiField {
+  status: 'found' | 'not_found';
+  value: unknown;
+  file: number | null;
+  page: number | null;
+  quote: string | null;
+  confidence: Confidence | null;
+  verified: boolean | null;
+  notes: string[];
+}
+
+export interface AiFields {
+  fields: Record<string, AiField>;
+  summary: { fields_found: number; returnables: number; mandatory_returnables: number; unverified: number; low_confidence: number };
+  files: { n: number; id: string; name: string }[];
+  provider: string;
+  model: string;
+  tokens: { input: number | null; output: number | null };
+  seconds: number;
+}
+
+export interface TenderAi {
+  ai_status: AiStatus;
+  ai_error: string | null;
+  ai_model: string | null;
+  ai_extracted_at: string | null;
+  ai_claimed_at: string | null;
+  ai_file_ids: string[];
+  ai_fields: AiFields | null;
+}
+
+export type RequirementKind = 'document' | 'form' | 'briefing' | 'deadline' | 'certification' | 'pricing' | 'other' | 'disqualifier' | 'special';
+
+export interface Requirement {
+  id: string;
+  kind: RequirementKind;
+  description: string;
+  doc_type: DocType | null;
+  mandatory: boolean;
+  conditions: string | null;
+  source_file_id: string | null;
+  source_page: number | null;
+  confidence: Confidence | null;
+  quote: string | null;
+  verified: boolean | null;
+  notes: string[];
+  added_by: 'ai' | 'keyword_check' | 'user';
+  confirmed: boolean;
+  sort_order: number;
+}

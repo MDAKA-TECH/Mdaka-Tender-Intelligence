@@ -1,7 +1,9 @@
-"""Tender PDF extraction worker.
+"""Tender extraction worker.
 
-Claims queued tender_files rows, downloads the PDF from the private 'tenders' bucket,
-extracts text page by page (OCR for scanned pages) and writes it back.
+1. Claims queued tender_files rows, downloads the PDF from the private 'tenders' bucket,
+   extracts text page by page (OCR for scanned pages) and writes it back.
+2. When all of a tender's files are read, claims the tender and runs AI extraction
+   (ai_job.py). Needs LLM_PROVIDER and that provider's key; without them step 2 is skipped.
 
   python worker.py          # run forever, polling every few seconds
   python worker.py --once   # process everything waiting, then exit
@@ -22,6 +24,7 @@ from datetime import datetime, timezone
 from dotenv import load_dotenv
 from supabase import Client, create_client
 
+from ai_job import process_ai
 from extract import extract_pdf, tesseract_available
 
 BUCKET = "tenders"
@@ -50,6 +53,17 @@ def connect() -> Client:
 def claim(sb: Client) -> dict | None:
     rows = sb.rpc("claim_tender_file").execute().data or []
     return rows[0] if rows else None
+
+
+def claim_ai(sb: Client) -> dict | None:
+    rows = sb.rpc("claim_tender_ai").execute().data or []
+    return rows[0] if rows else None
+
+
+def ai_enabled() -> bool:
+    provider = (os.getenv("LLM_PROVIDER") or "").strip().lower()
+    key = {"anthropic": "ANTHROPIC_API_KEY", "openai": "OPENAI_API_KEY", "gemini": "GEMINI_API_KEY"}.get(provider)
+    return bool(key and os.getenv(key))
 
 
 def process(sb: Client, job: dict) -> None:
@@ -95,16 +109,23 @@ def main() -> None:
     signal.signal(signal.SIGTERM, _handle_stop)
 
     sb = connect()
-    log.info("Worker started. OCR %s.", "available" if tesseract_available() else "NOT installed: scanned pages will be skipped")
+    use_ai = ai_enabled()
+    log.info("Worker started. OCR %s. AI extraction %s.",
+             "available" if tesseract_available() else "NOT installed: scanned pages will be skipped",
+             f"on ({os.getenv('LLM_PROVIDER')})" if use_ai else "OFF: set LLM_PROVIDER and its API key in worker/.env")
     while not _stop:
         try:
-            job = claim(sb)
+            job = claim(sb)  # reading PDFs comes first: AI needs the text
+            ai_job = None if job or not use_ai else claim_ai(sb)
         except Exception:  # noqa: BLE001 — network blips shouldn't kill the worker
             log.exception("Could not reach Supabase; retrying in %ss", POLL_SECONDS * 3)
             time.sleep(POLL_SECONDS * 3)
             continue
         if job:
             process(sb, job)
+            continue
+        if ai_job:
+            process_ai(sb, ai_job)
             continue
         if args.once:
             break
