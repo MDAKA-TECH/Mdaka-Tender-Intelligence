@@ -1,0 +1,17 @@
+#cloud-config
+# Paste this into Oracle Cloud → Create instance → Advanced options → Management → "Paste cloud-init script".
+# It prepares an Ubuntu Arm server for the Tender Intelligence worker: Docker, git, a 2 GB swap file,
+# and automatic security updates. No secrets in here.
+package_update: true
+package_upgrade: true
+packages:
+  - docker.io
+  - git
+  - unattended-upgrades
+runcmd:
+  - systemctl enable --now docker
+  - usermod -aG docker ubuntu
+  - fallocate -l 2G /swapfile && chmod 600 /swapfile && mkswap /swapfile && swapon /swapfile
+  - echo '/swapfile none swap sw 0 0' >> /etc/fstab
+  - mkdir -p /opt/tender-intel && chown ubuntu:ubuntu /opt/tender-intel
+  - echo "Tender Intelligence server ready" > /etc/motd

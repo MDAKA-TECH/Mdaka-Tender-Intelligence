@@ -1,7 +1,7 @@
 import { deepStrictEqual as assertEquals, ok as assert } from 'node:assert/strict';
 const assertStringIncludes = (s: string, part: string) => assert(s.includes(part), `expected to include: ${part}\n---\n${s}`);
 import { buildEmail, whenWord, type Group } from './email.ts';
-import { runCron, sendAlerts, type Db, type Sender } from './cron.ts';
+import { cleanStorage, runCron, sendAlerts, type CleanupItem, type Db, type Sender } from './cron.ts';
 import { buildAlertEmail } from './email.ts';
 
 const NOW = new Date('2026-10-26T06:05:00Z'); // Mon 26 Oct 08:05 SAST
@@ -54,6 +54,8 @@ function fakeDb(groups: Group[]) {
     finish: async (ids, err) => { finished.push([ids, err]); },
     alerts: async () => [],
     markAlerts: async () => {},
+    cleanupBatch: async () => [],
+    cleanupDone: async () => {},
   };
   return { db, finished };
 }
@@ -83,6 +85,7 @@ Deno.test('admin alert: emailed once, then marked', async () => {
     claim: async () => [], finish: async () => {},
     alerts: async () => [{ id: 7, kind: 'ai_account', message: '429 from model API (account/quota problem): insufficient_quota', created_at: '2026-10-29T08:00:00Z' }],
     markAlerts: async (ids) => { marked.push(ids); },
+    cleanupBatch: async () => [], cleanupDone: async () => {},
   };
   const sent: string[] = [];
   const r = await sendAlerts(db, async (to, e) => { sent.push(to[0] + ' | ' + e.subject); }, 'admin@x.test', 'https://app.test');
@@ -94,9 +97,30 @@ Deno.test('admin alert: emailed once, then marked', async () => {
 
 Deno.test('admin alert: failed send leaves it pending', async () => {
   let marked = false;
-  const db: Db = { claim: async () => [], finish: async () => {}, alerts: async () => [{ id: 1, kind: 'ai_account', message: 'x', created_at: '2026-10-29T08:00:00Z' }], markAlerts: async () => { marked = true; } };
+  const db: Db = { claim: async () => [], finish: async () => {}, alerts: async () => [{ id: 1, kind: 'ai_account', message: 'x', created_at: '2026-10-29T08:00:00Z' }], markAlerts: async () => { marked = true; }, cleanupBatch: async () => [], cleanupDone: async () => {} };
   let threw = false;
   try { await sendAlerts(db, async () => { throw new Error('Resend 500'); }, 'a@x.test', 'x'); } catch { threw = true; }
   assert(threw && !marked);
   assertStringIncludes(buildAlertEmail([{ id: 1, kind: 'ai_account', message: '<b>', created_at: '2026-10-29T08:00:00Z' }], 'x').html, '&lt;b&gt;');
+});
+
+Deno.test('storage cleanup: removes queued files per bucket, keeps failures for next run', async () => {
+  const queue: CleanupItem[] = [
+    { id: 1, bucket: 'tenders', path: 'c/t/a.pdf' }, { id: 2, bucket: 'tenders', path: 'c/t/b.pdf' }, { id: 3, bucket: 'vault', path: 'c/csd.pdf' },
+  ];
+  const finished: [number[], number[], string | null][] = [];
+  let served = false;
+  const db = {
+    claim: async () => [], finish: async () => {}, alerts: async () => [], markAlerts: async () => {},
+    cleanupBatch: async () => (served ? [] : ((served = true), queue)),
+    cleanupDone: async (d: number[], f: number[], e: string | null) => { finished.push([d, f, e]); },
+  } as Db;
+  const calls: string[] = [];
+  const s = await cleanStorage(db, async (bucket, paths) => {
+    calls.push(`${bucket}:${paths.join(',')}`);
+    if (bucket === 'vault') throw new Error('Storage 500');
+  });
+  assertEquals(calls, ['tenders:c/t/a.pdf,c/t/b.pdf', 'vault:c/csd.pdf']);
+  assertEquals(finished, [[[1, 2], [3], 'Storage 500']]);
+  assertEquals(s, { removed: 2, failed: 1 });
 });

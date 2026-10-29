@@ -14,7 +14,7 @@
 import { createClient, type SupabaseClient } from 'npm:@supabase/supabase-js@2.45.4';
 import { timingSafeEqual } from 'node:crypto';
 import { buildEmail, type Group, type Item } from './email.ts';
-import { resendSender, runCron, sendAlerts, supabaseDb, type Sender } from './cron.ts';
+import { cleanStorage, resendSender, runCron, sendAlerts, storageRemover, supabaseDb, type Sender } from './cron.ts';
 
 const CORS = {
   'Access-Control-Allow-Origin': '*',
@@ -88,6 +88,12 @@ Deno.serve(async (req) => {
       if (!sameSecret(secret, env('CRON_SECRET'))) return json({ error: 'Forbidden' }, 403);
       const db = supabaseDb(sb);
       const summary: Record<string, unknown> = await runCron(db, send, appUrl);
+      try {
+        summary.storage = await cleanStorage(db, storageRemover(sb));
+      } catch (e) {
+        console.error('storage cleanup failed', e);
+        summary.storage = { error: e instanceof Error ? e.message : String(e) };
+      }
       try {
         summary.admin = await sendAlerts(db, send, Deno.env.get('ADMIN_EMAIL'), appUrl);
       } catch (e) {

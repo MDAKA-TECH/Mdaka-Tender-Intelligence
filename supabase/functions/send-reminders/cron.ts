@@ -26,7 +26,18 @@ export interface Db {
   finish(ids: string[], error: string | null): Promise<void>;
   alerts(): Promise<Alert[]>;
   markAlerts(ids: number[]): Promise<void>;
+  cleanupBatch(): Promise<CleanupItem[]>;
+  cleanupDone(done: number[], failed: number[], error: string | null): Promise<void>;
 }
+
+export interface CleanupItem {
+  id: number;
+  bucket: 'tenders' | 'vault';
+  path: string;
+}
+
+// Removes files from a storage bucket. Files that are already gone are not an error.
+export type Remover = (bucket: string, paths: string[]) => Promise<void>;
 
 export function supabaseDb(sb: SupabaseClient): Db {
   return {
@@ -48,7 +59,53 @@ export function supabaseDb(sb: SupabaseClient): Db {
       const { error } = await sb.rpc('mark_system_alerts_notified', { p_ids: ids });
       if (error) throw new Error(`mark_system_alerts_notified: ${error.message}`);
     },
+    async cleanupBatch() {
+      const { data, error } = await sb.rpc('claim_storage_cleanup', { p_limit: 500 });
+      if (error) throw new Error(`claim_storage_cleanup: ${error.message}`);
+      return (data ?? []) as CleanupItem[];
+    },
+    async cleanupDone(done, failed, err) {
+      const { error } = await sb.rpc('finish_storage_cleanup', { p_done: done, p_failed: failed, p_error: err });
+      if (error) throw new Error(`finish_storage_cleanup: ${error.message}`);
+    },
   };
+}
+
+export function storageRemover(sb: SupabaseClient): Remover {
+  return async (bucket, paths) => {
+    const { error } = await sb.storage.from(bucket).remove(paths);
+    if (error) throw new Error(`Storage remove (${bucket}): ${error.message}`);
+  };
+}
+
+// Deletes the stored PDFs of rows that were deleted (queued by a database trigger, migration 0006).
+export async function cleanStorage(db: Db, remove: Remover) {
+  const summary = { removed: 0, failed: 0 };
+  for (let round = 0; round < 10; round++) {
+    const batch = await db.cleanupBatch();
+    if (!batch.length) break;
+    const done: number[] = [];
+    const failed: number[] = [];
+    let lastError: string | null = null;
+    for (const bucket of ['tenders', 'vault'] as const) {
+      const items = batch.filter((i) => i.bucket === bucket);
+      for (let k = 0; k < items.length; k += 100) {
+        const chunk = items.slice(k, k + 100);
+        try {
+          await remove(bucket, chunk.map((i) => i.path));
+          done.push(...chunk.map((i) => i.id));
+        } catch (e) {
+          lastError = e instanceof Error ? e.message : String(e);
+          failed.push(...chunk.map((i) => i.id));
+        }
+      }
+    }
+    await db.cleanupDone(done, failed, lastError);
+    summary.removed += done.length;
+    summary.failed += failed.length;
+    if (failed.length || batch.length < 500) break; // don't spin on a failing bucket; next hour retries
+  }
+  return summary;
 }
 
 // Emails the admin about problems users can't fix (e.g. the AI account ran out of credit).

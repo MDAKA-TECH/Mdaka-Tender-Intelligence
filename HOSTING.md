@@ -49,7 +49,47 @@ Every `git push` to the main branch redeploys automatically.
    ```
 3. Sign up / sign in on the live address once to check the confirmation email link lands on the live site.
 
-## 4. Worker on Railway (about 20 minutes)
+## 4A. Worker on Oracle Cloud, free (about 45 minutes the first time)
+
+Files: `worker/deploy/oracle-cloud-init.yaml`, `worker/deploy/setup-worker.sh`, `worker/deploy/update-worker.sh`.
+
+**Account**
+1. oracle.com/cloud/free → Start for free. **Home region: South Africa Central (Johannesburg).** It can't be changed later,
+   and free servers only run in the home region. A card is needed for verification; stay on the Free Tier account.
+
+**Server**
+2. Console → Compute → Instances → **Create instance**:
+   - Name: `tender-worker`
+   - Image: **Canonical Ubuntu 24.04** (the aarch64/Arm build is picked automatically for Ampere)
+   - Shape: **Ampere → VM.Standard.A1.Flex**, **1 OCPU, 2 GB memory** (keeps memory use above the 20% "idle" line)
+   - Networking: keep the defaults (new VCN, public subnet, assign a public IPv4 address)
+   - SSH keys: **Generate a key pair for me** → **Save private key** (keep it safe; it's the only way in)
+   - Boot volume: default size
+   - Advanced options → Management → **Paste cloud-init script** → paste all of `oracle-cloud-init.yaml`
+   - Create. Wait until it shows **Running**, then about 5 more minutes for first-boot setup. Copy the **Public IP address**.
+
+**Connect** (Windows PowerShell, in the folder where the key was saved)
+3. `icacls .\ssh-key-*.key /inheritance:r /grant:r "$($env:USERNAME):(R)"` (Windows: lock the key file down once)
+4. `ssh -i .\ssh-key-<date>.key ubuntu@<public-ip>` → type `yes` the first time.
+
+**Install the worker**
+5. On the server, get the setup script onto it: `nano setup-worker.sh`, paste the contents of `worker/deploy/setup-worker.sh`,
+   save (Ctrl+O, Enter, Ctrl+X), then run `bash setup-worker.sh`.
+6. The script shows a **deploy key**. In GitHub: `MDAKA-TECH/Mdaka-Tender-Intelligence` → Settings → **Deploy keys** →
+   Add deploy key, title `oracle-worker`, paste it, **leave "Allow write access" off** → Add. Back in the server, press Enter.
+7. When nano opens, paste the contents of your PC's `worker\.env` (no quotes around values), save and exit.
+8. The script builds and starts the worker and prints its log. Look for **OCR available** and **AI extraction on (gemini)**.
+9. Upload a test tender on the live site; it should be read within a minute. Then stop the worker on your PC (Ctrl+C).
+
+**Later**
+- Follow the log: `docker logs -f tender-worker` (Ctrl+C stops following, not the worker).
+- After you push worker changes to GitHub: `bash /opt/tender-intel/worker/deploy/update-worker.sh`.
+- The worker restarts by itself after a crash or a server reboot.
+- First week: Oracle console → the instance → Metrics → check **Memory utilization** sits above 20%. If Oracle ever
+  reclaims the server, nothing is lost: uploads wait as "Waiting" until a worker runs again (your PC, or a new server
+  set up with the same steps).
+
+## 4B. Worker on Railway instead (about 20 minutes, ~$5/month)
 
 The worker folder has a `Dockerfile` (Python 3.12 + Tesseract OCR, runs as a non-root user, no secrets inside).
 
