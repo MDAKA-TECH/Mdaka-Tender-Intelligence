@@ -113,6 +113,7 @@ export function buildChecklistPdf(input: ExportInput): jsPDF {
 
   if (toReview.length) {
     const msg = pdfText(`${toReview.length} item${toReview.length > 1 ? 's' : ''} found by the AI ${toReview.length > 1 ? 'are' : 'is'} not reviewed yet. ${toReview.length > 1 ? 'They are' : 'It is'} listed at the end and not counted above.`);
+    doc.setFont('helvetica', 'bold').setFontSize(9.5);
     const lines = doc.splitTextToSize(msg, W - 2 * M - 20);
     const h = lines.length * 12 + 14;
     doc.setFillColor(...WARN_BG).roundedRect(M, y, W - 2 * M, h, 4, 4, 'F');
@@ -124,6 +125,10 @@ export function buildChecklistPdf(input: ExportInput): jsPDF {
   y = sectionTitle(doc, 'Documents to submit', y, M);
   if (!docs.length) y = note(doc, 'No confirmed documents yet. Review the AI results in the app first.', y, M);
   else {
+    // A long row that breaks across pages is drawn again on the next page with a different row index,
+    // so look requirements up by the first cell's own content object, not by position.
+    const reqOf = (raw: unknown) => (raw && typeof raw === 'object' && 'req' in raw ? (raw as { req: Requirement }).req : null);
+    const drawn = new Set<string>();
     autoTable(doc, {
       startY: y,
       margin: { left: M, right: M },
@@ -133,13 +138,14 @@ export function buildChecklistPdf(input: ExportInput): jsPDF {
         const vaultText = !r.doc_type ? 'Prepare for this tender' : m ? `${m.label}${m.doc?.expires_on && m.state !== 'on_file' ? ` (${fmtDate(m.doc.expires_on)})` : ''}` : '';
         const lines = [r.description, r.mandatory ? 'Mandatory' : 'Optional', r.conditions ? `Conditions: ${r.conditions}` : '', r.doc_type ? `Vault: ${docTypeInfo(r.doc_type).name}` : '']
           .filter(Boolean).join('\n');
-        return ['', pdfText(lines), pdfText(vaultText), pdfText(where(r.source_file_id, r.source_page))];
+        return [{ content: '', req: r }, pdfText(lines), pdfText(vaultText), pdfText(where(r.source_file_id, r.source_page))];
       }),
       ...tableStyle(),
       columnStyles: { 0: { cellWidth: 22 }, 2: { cellWidth: 120 }, 3: { cellWidth: 70 } },
       didParseCell: (d) => {
         if (d.section !== 'body') return;
-        const r = docs[d.row.index];
+        const r = reqOf(d.row.raw && (d.row.raw as unknown[])[0]);
+        if (!r) return;
         if (d.column.index === 2) {
           const m = matches.get(r.id);
           if (m?.tone === 'crit') d.cell.styles.textColor = CRIT;
@@ -149,7 +155,10 @@ export function buildChecklistPdf(input: ExportInput): jsPDF {
       },
       didDrawCell: (d) => {
         if (d.section !== 'body' || d.column.index !== 0) return;
-        const done = docs[d.row.index].status === 'done';
+        const r = reqOf(d.cell.raw);
+        if (!r || drawn.has(r.id)) return; // tick box only on the row's first page
+        drawn.add(r.id);
+        const done = r.status === 'done';
         const x = d.cell.x + 5, yy = d.cell.y + 6, s = 10;
         doc.setDrawColor(...(done ? ACCENT : MUTED)).setLineWidth(0.8).rect(x, yy, s, s);
         if (done) doc.setDrawColor(...ACCENT).setLineWidth(1.4).lines([[2.5, 3], [5, -6.5]], x + 1.8, yy + 5.2);
