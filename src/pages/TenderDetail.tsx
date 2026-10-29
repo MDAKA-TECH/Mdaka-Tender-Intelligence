@@ -11,7 +11,7 @@ import { Modal, useToast } from '../components/ui';
 
 const FILE_COLS = 'id, tender_id, file_path, file_name, file_size, status, error, page_count, ocr_used, ocr_pages, extracted_at, created_at';
 const POLL_MS = 4000;
-const AI_COLS = 'ai_status, ai_error, ai_model, ai_extracted_at, ai_claimed_at, ai_file_ids, ai_fields';
+const AI_COLS = 'ai_status, ai_error, ai_error_kind, ai_model, ai_extracted_at, ai_claimed_at, ai_file_ids, ai_fields';
 const REQ_COLS = 'id, kind, description, doc_type, mandatory, conditions, source_file_id, source_page, confidence, quote, verified, notes, added_by, confirmed, status, sort_order';
 const WORKER_HINT_AFTER_MS = 2 * 60 * 1000;
 const TENDER_COLS = 'id, reference_no, entity, description, closing_at, briefing_at, briefing_compulsory, submission_method, status, created_at';

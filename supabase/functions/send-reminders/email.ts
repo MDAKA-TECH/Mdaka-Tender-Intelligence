@@ -192,3 +192,35 @@ ${l.details.map((d) => `<p style="margin:0 0 4px;font-size:14px;color:#3d4844">$
 function cap(s: string) {
   return s.charAt(0).toUpperCase() + s.slice(1);
 }
+
+// ---------------------------------------------------------------- admin alerts
+
+export interface Alert {
+  id: number;
+  kind: string;
+  message: string;
+  created_at: string;
+}
+
+const ALERT_TEXT: Record<string, { subject: string; what: string; fix: string }> = {
+  ai_account: {
+    subject: 'Tender Intelligence: AI extraction is paused',
+    what: 'The AI provider refused a request because of the account: out of credit or quota, a billing problem, or a missing or rejected API key. Users see "AI extraction is paused for your account" and can still add checklist items by hand.',
+    fix: 'Check the provider console (credit, billing, quota and the API key), fix it, then click Re-run AI on the affected tenders. You get at most one of these emails a day.',
+  },
+};
+
+export function buildAlertEmail(alerts: Alert[], appUrl: string): Email {
+  const first = ALERT_TEXT[alerts[0].kind] ?? { subject: 'Tender Intelligence: system alert', what: 'Something needs your attention.', fix: 'See the details below.' };
+  const details = alerts.map((a) => `${fmtDateTime(a.created_at)}  ${a.message}`);
+  const text = [first.what, '', first.fix, '', 'Technical details:', ...details, '', `App: ${appUrl}`].join('\n');
+  const html = `<!doctype html><html><body style="margin:0;padding:24px 16px;background:#f3f4f2;font-family:Segoe UI,Helvetica,Arial,sans-serif;color:#18201d;font-size:15px;line-height:1.5">
+<div style="max-width:560px;margin:0 auto">
+<p style="margin:0 0 4px;font-size:13px;color:#5d6b66">Tender Intelligence · admin alert</p>
+<p style="margin:0 0 12px"><strong>${escapeHtml(first.subject.replace('Tender Intelligence: ', ''))}</strong></p>
+<p style="margin:0 0 12px">${escapeHtml(first.what)}</p>
+<p style="margin:0 0 16px">${escapeHtml(first.fix)}</p>
+<pre style="white-space:pre-wrap;word-break:break-word;background:#fff;border:1px solid #dfe3e1;border-radius:8px;padding:12px;font-size:12.5px">${escapeHtml(details.join('\n'))}</pre>
+</div></body></html>`;
+  return { subject: first.subject, html, text };
+}

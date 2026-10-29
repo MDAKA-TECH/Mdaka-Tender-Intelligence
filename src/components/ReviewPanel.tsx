@@ -124,7 +124,7 @@ export default function ReviewPanel({
         <div className="ai-title">
           <h2 id="review-head">Requirements</h2>
           {busy && <span className="pill accent">{ai.ai_status === 'running' ? 'Reading with AI…' : 'AI queued'}</span>}
-          {ai.ai_status === 'failed' && <span className="pill crit">AI failed</span>}
+          {ai.ai_status === 'failed' && (ai.ai_error_kind === 'busy' ? <span className="pill warn">AI busy</span> : ai.ai_error_kind === 'account' ? <span className="pill crit">AI paused</span> : <span className="pill crit">AI failed</span>)}
         </div>
         <div className="toolbar">
           {(ai.ai_status !== 'none' || done.length > 0) && (
@@ -159,12 +159,7 @@ export default function ReviewPanel({
             {ai.ai_status === 'queued' && <> If it stays queued, check the worker is running and printed <span className="mono">AI extraction on</span>.</>}
           </p>
         )}
-        {ai.ai_status === 'failed' && (
-          <div className="callout crit">
-            <b>AI extraction didn't finish</b>
-            {ai.ai_error ?? 'Unknown error.'} {ai.ai_error && /rate limit/i.test(ai.ai_error) ? 'The free tier allows only a few requests; try again later.' : ''}
-          </div>
-        )}
+        {ai.ai_status === 'failed' && <AiFailure kind={ai.ai_error_kind} detail={ai.ai_error} />}
         {stale && (
           <div className="callout">
             <b>The files changed since the last AI run</b>
@@ -286,6 +281,34 @@ export default function ReviewPanel({
         />
       )}
     </section>
+  );
+}
+
+// Plain-language messages for a failed AI run. The technical error stays out of sight under "Technical details".
+const AI_FAILURE: Record<string, { tone: 'warn' | 'crit'; title: string; body: string }> = {
+  busy: { tone: 'warn', title: 'The AI service is busy right now', body: 'Your PDFs are read and saved. Click Re-run AI in a few minutes.' },
+  account: {
+    tone: 'crit',
+    title: 'AI extraction is paused for your account',
+    body: "Your PDFs are read and saved, and you can add checklist items by hand with Add item. We've been notified.",
+  },
+  input: { tone: 'warn', title: 'There are no readable PDFs yet', body: 'Upload the tender PDFs, or retry any that failed, then click Re-run AI.' },
+  other: { tone: 'crit', title: 'Something went wrong reading this tender with AI', body: 'Click Re-run AI to try again.' },
+};
+
+function AiFailure({ kind, detail }: { kind: TenderAi['ai_error_kind']; detail: string | null }) {
+  const m = AI_FAILURE[kind ?? 'other'] ?? AI_FAILURE.other;
+  return (
+    <div className={`callout ${m.tone}`} role="status">
+      <b>{m.title}</b>
+      {m.body}
+      {detail && kind !== 'input' && (
+        <details className="history" style={{ marginTop: 8 }}>
+          <summary><ChevronRight className="ico" aria-hidden="true" />Technical details</summary>
+          <code className="small" style={{ display: 'block', marginTop: 6, overflowWrap: 'anywhere' }}>{detail}</code>
+        </details>
+      )}
+    </div>
   );
 }
 

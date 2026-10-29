@@ -14,7 +14,7 @@
 import { createClient, type SupabaseClient } from 'npm:@supabase/supabase-js@2.45.4';
 import { timingSafeEqual } from 'node:crypto';
 import { buildEmail, type Group, type Item } from './email.ts';
-import { resendSender, runCron, supabaseDb, type Sender } from './cron.ts';
+import { resendSender, runCron, sendAlerts, supabaseDb, type Sender } from './cron.ts';
 
 const CORS = {
   'Access-Control-Allow-Origin': '*',
@@ -86,8 +86,15 @@ Deno.serve(async (req) => {
     const secret = req.headers.get('x-cron-secret');
     if (secret !== null) {
       if (!sameSecret(secret, env('CRON_SECRET'))) return json({ error: 'Forbidden' }, 403);
-      const summary = await runCron(supabaseDb(sb), send, appUrl);
-      if (summary.errors.length) console.error('send-reminders errors', summary.errors);
+      const db = supabaseDb(sb);
+      const summary: Record<string, unknown> = await runCron(db, send, appUrl);
+      try {
+        summary.admin = await sendAlerts(db, send, Deno.env.get('ADMIN_EMAIL'), appUrl);
+      } catch (e) {
+        console.error('admin alert failed', e);
+        summary.admin = { error: e instanceof Error ? e.message : String(e) };
+      }
+      if ((summary.errors as string[]).length) console.error('send-reminders errors', summary.errors);
       return json(summary);
     }
     return await sendTest(req, sb, send, appUrl);

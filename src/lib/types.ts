@@ -167,6 +167,7 @@ export interface AiFields {
 export interface TenderAi {
   ai_status: AiStatus;
   ai_error: string | null;
+  ai_error_kind: 'busy' | 'account' | 'input' | 'other' | null;
   ai_model: string | null;
   ai_extracted_at: string | null;
   ai_claimed_at: string | null;

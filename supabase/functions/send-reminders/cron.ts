@@ -1,6 +1,6 @@
 // Sending logic for send-reminders, kept apart from the HTTP handler so it can be tested.
 import type { SupabaseClient } from 'npm:@supabase/supabase-js@2.45.4';
-import { buildEmail, type Email, type Group } from './email.ts';
+import { buildAlertEmail, buildEmail, type Alert, type Email, type Group } from './email.ts';
 
 export type Sender = (to: string[], email: Email, idempotencyKey: string) => Promise<void>;
 
@@ -24,6 +24,8 @@ async function idempotencyKey(ids: string[]): Promise<string> {
 export interface Db {
   claim(): Promise<Group[]>;
   finish(ids: string[], error: string | null): Promise<void>;
+  alerts(): Promise<Alert[]>;
+  markAlerts(ids: number[]): Promise<void>;
 }
 
 export function supabaseDb(sb: SupabaseClient): Db {
@@ -37,7 +39,27 @@ export function supabaseDb(sb: SupabaseClient): Db {
       const { error } = await sb.rpc('finish_reminders', { p_ids: ids, p_error: err });
       if (error) throw new Error(`finish_reminders: ${error.message}`);
     },
+    async alerts() {
+      const { data, error } = await sb.rpc('pending_system_alerts');
+      if (error) throw new Error(`pending_system_alerts: ${error.message}`);
+      return (data ?? []) as Alert[];
+    },
+    async markAlerts(ids) {
+      const { error } = await sb.rpc('mark_system_alerts_notified', { p_ids: ids });
+      if (error) throw new Error(`mark_system_alerts_notified: ${error.message}`);
+    },
   };
+}
+
+// Emails the admin about problems users can't fix (e.g. the AI account ran out of credit).
+// Alerts stay pending, and are retried next hour, until an email goes out.
+export async function sendAlerts(db: Db, send: Sender, adminEmail: string | undefined, appUrl: string) {
+  if (!adminEmail) return { alerts: 0, skipped: 'ADMIN_EMAIL not set' };
+  const alerts = await db.alerts();
+  if (!alerts.length) return { alerts: 0 };
+  await send([adminEmail], buildAlertEmail(alerts, appUrl), `alerts-${alerts.map((a) => a.id).join('-')}`);
+  await db.markAlerts(alerts.map((a) => a.id));
+  return { alerts: alerts.length };
 }
 
 // One pass over everything that is due. Each company's email succeeds or fails on its own.

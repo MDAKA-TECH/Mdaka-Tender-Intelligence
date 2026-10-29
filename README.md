@@ -75,7 +75,7 @@ Same setup as Student360.
 
 1. Create a new Supabase project (separate from Student360).
 2. Supabase → SQL Editor → run each file in `supabase/migrations/` in order
-   (`0001_foundations.sql`, `0002_ingestion.sql`, `0003_ai_extraction.sql`, then `0004_reminders.sql`).
+   (`0001_foundations.sql`, `0002_ingestion.sql`, `0003_ai_extraction.sql`, `0004_reminders.sql`, then `0005_ai_errors.sql`).
 3. Supabase → Authentication → URL Configuration: set Site URL to `http://localhost:5173`
    (add your Vercel URL later). Email confirmation is on by default; keep it on.
 4. Copy `.env.example` to `.env.local` and fill in the project URL and anon key
@@ -154,6 +154,8 @@ them with [Resend](https://resend.com); Supabase's pg_cron calls it every hour.
    npx supabase functions deploy send-reminders --project-ref qwpovznioeicizixdpqa --use-api
    npx supabase secrets set --project-ref qwpovznioeicizixdpqa RESEND_API_KEY=re_xxx CRON_SECRET=xxx APP_URL=http://localhost:5173 "REMINDER_FROM=Tender Intelligence <reminders@mdakatech.com>"
    ```
+   Optional but recommended: `npx supabase secrets set --project-ref qwpovznioeicizixdpqa ADMIN_EMAIL=you@mdakatech.com`
+   so you get an email (at most once a day) when the AI account runs out of credit or its key stops working.
    `supabase/config.toml` turns off the gateway's JWT check for this function; the function checks the
    cron secret (hourly run) or the signed-in user's token (test email) itself. Change `APP_URL` to the
    Vercel URL once the app is deployed.

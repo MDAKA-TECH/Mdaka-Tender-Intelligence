@@ -1,7 +1,8 @@
 import { deepStrictEqual as assertEquals, ok as assert } from 'node:assert/strict';
 const assertStringIncludes = (s: string, part: string) => assert(s.includes(part), `expected to include: ${part}\n---\n${s}`);
 import { buildEmail, whenWord, type Group } from './email.ts';
-import { runCron, type Db, type Sender } from './cron.ts';
+import { runCron, sendAlerts, type Db, type Sender } from './cron.ts';
+import { buildAlertEmail } from './email.ts';
 
 const NOW = new Date('2026-10-26T06:05:00Z'); // Mon 26 Oct 08:05 SAST
 
@@ -51,6 +52,8 @@ function fakeDb(groups: Group[]) {
   const db: Db = {
     claim: async () => (given ? [] : ((given = true), groups)),
     finish: async (ids, err) => { finished.push([ids, err]); },
+    alerts: async () => [],
+    markAlerts: async () => {},
   };
   return { db, finished };
 }
@@ -72,4 +75,28 @@ Deno.test('cron: nothing due', async () => {
   const { db } = fakeDb([]);
   const s = await runCron(db, async () => { throw new Error('should not send'); }, 'https://app.test', NOW);
   assertEquals(s.emails, 0);
+});
+
+Deno.test('admin alert: emailed once, then marked', async () => {
+  const marked: number[][] = [];
+  const db: Db = {
+    claim: async () => [], finish: async () => {},
+    alerts: async () => [{ id: 7, kind: 'ai_account', message: '429 from model API (account/quota problem): insufficient_quota', created_at: '2026-10-29T08:00:00Z' }],
+    markAlerts: async (ids) => { marked.push(ids); },
+  };
+  const sent: string[] = [];
+  const r = await sendAlerts(db, async (to, e) => { sent.push(to[0] + ' | ' + e.subject); }, 'admin@x.test', 'https://app.test');
+  assertEquals(r, { alerts: 1 });
+  assertEquals(sent, ['admin@x.test | Tender Intelligence: AI extraction is paused']);
+  assertEquals(marked, [[7]]);
+  assertEquals(await sendAlerts(db, async () => {}, undefined, 'x'), { alerts: 0, skipped: 'ADMIN_EMAIL not set' });
+});
+
+Deno.test('admin alert: failed send leaves it pending', async () => {
+  let marked = false;
+  const db: Db = { claim: async () => [], finish: async () => {}, alerts: async () => [{ id: 1, kind: 'ai_account', message: 'x', created_at: '2026-10-29T08:00:00Z' }], markAlerts: async () => { marked = true; } };
+  let threw = false;
+  try { await sendAlerts(db, async () => { throw new Error('Resend 500'); }, 'a@x.test', 'x'); } catch { threw = true; }
+  assert(threw && !marked);
+  assertStringIncludes(buildAlertEmail([{ id: 1, kind: 'ai_account', message: '<b>', created_at: '2026-10-29T08:00:00Z' }], 'x').html, '&lt;b&gt;');
 });

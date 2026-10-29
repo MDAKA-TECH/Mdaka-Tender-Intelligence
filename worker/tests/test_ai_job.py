@@ -59,9 +59,14 @@ class Query:
 class FakeSB:
     def __init__(self):
         self.db: dict[str, list[dict]] = {}
+        self.rpcs: list[tuple[str, dict]] = []
 
     def table(self, name):
         return Query(self.db, name)
+
+    def rpc(self, fn, params):
+        self.rpcs.append((fn, params))
+        return type("Q", (), {"execute": lambda _self: type("R", (), {"data": True})})()
 
 
 def setup_ter(sb: FakeSB) -> dict:
@@ -149,6 +154,59 @@ def test_no_readable_files():
     ai_job.process_ai(sb, {"id": "T9", "company_id": "C1", "ai_attempts": 1})
     assert sb.db["tenders"][0]["ai_status"] == "failed"
     assert "No readable PDFs" in sb.db["tenders"][0]["ai_error"]
+    assert sb.db["tenders"][0]["ai_error_kind"] == "input"
+    assert sb.rpcs == []
+
+
+def _failing_call(err):
+    def call(_prompt):
+        raise err
+    return call
+
+
+def test_account_error_is_flagged_and_alerts_admin():
+    import llm
+    sb = FakeSB()
+    setup_ter(sb)
+    real = llm.call
+    llm.call = _failing_call(llm.LLMError('429 from model API: {"error": {"code": "insufficient_quota"}}', kind="account"))
+    try:
+        ai_job.process_ai(sb, {"id": "T1", "company_id": "C1", "ai_attempts": 1})
+    finally:
+        llm.call = real
+    t = sb.db["tenders"][0]
+    assert t["ai_status"] == "failed" and t["ai_error_kind"] == "account"
+    assert sb.rpcs and sb.rpcs[0][0] == "raise_system_alert" and "insufficient_quota" in sb.rpcs[0][1]["p_message"]
+    assert len(sb.db["requirements"]) == 3                 # nothing deleted
+
+
+def test_busy_error_does_not_alert():
+    import llm
+    sb = FakeSB()
+    setup_ter(sb)
+    real = llm.call
+    llm.call = _failing_call(llm.Overloaded("503: overloaded"))
+    try:
+        ai_job.process_ai(sb, {"id": "T1", "company_id": "C1", "ai_attempts": 1})
+    finally:
+        llm.call = real
+    assert sb.db["tenders"][0]["ai_error_kind"] == "busy"
+    assert sb.rpcs == []
+
+
+def test_classify_provider_errors():
+    from llm import classify_http_error as c
+    assert c(429, '{"error":{"code":"insufficient_quota","message":"You exceeded your current quota"}}') == "account"   # OpenAI out of credit
+    gem = '{"error":{"code":429,"message":"You exceeded your current quota, please check your plan and billing details.","status":"RESOURCE_EXHAUSTED","details":[{"violations":[{"quotaId":"%s"}]}]}}'
+    assert c(429, gem % "GenerateRequestsPerMinutePerProjectPerModel-FreeTier") == "busy"     # Gemini short rate limit
+    assert c(429, gem % "GenerateRequestsPerDayPerProjectPerModel-FreeTier") == "account"     # Gemini daily quota used up
+    assert c(429, '{"error":{"message":"Rate limit reached for gpt on requests per min (RPM)","type":"requests"}}') == "busy"
+    assert c(429, 'Too many requests') == "busy"
+    assert c(400, '{"error":{"message":"API key not valid. Please pass a valid API key."}}') == "account"
+    assert c(400, '{"error":{"message":"Your credit balance is too low to access the Anthropic API."}}') == "account"
+    assert c(400, '{"error":{"message":"Invalid JSON payload"}}') == "other"
+    assert c(401, "unauthorized") == "account" and c(403, "") == "account"
+    assert c(503, "") == "busy" and c(500, "") == "busy"
 
 
 if __name__ == "__main__":

@@ -82,6 +82,9 @@ On Render choose **Background Worker** (not Web Service).
 - **Gemini**: switch to a paid API key (free-tier prompts may be read by Google). Change `GEMINI_API_KEY` on Railway.
 - **Supabase Pro**: free projects pause after about a week without activity and have small storage; Pro adds backups.
 - **Vercel Pro**: the free Hobby plan is for non-commercial use.
+- **Admin alerts**: set `ADMIN_EMAIL` on the send-reminders function (`npx supabase secrets set ... ADMIN_EMAIL=...`) so you
+  hear about it the first time the AI account runs out of credit or quota. Users then see "AI extraction is paused for
+  your account" instead of a technical error.
 - **Resend**: the mdakatech.com domain must show Verified, and `REMINDER_FROM` uses `@mdakatech.com`.
 - Privacy notice and terms page (POPIA: the vault holds directors' IDs).
 

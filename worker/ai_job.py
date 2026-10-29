@@ -23,6 +23,27 @@ KIND_BY_CATEGORY = {
 }
 
 
+class NoReadableFiles(ValueError):
+    """The tender has no successfully read PDFs; the user can fix this themselves."""
+
+
+def error_kind(e: Exception) -> str:
+    """busy | account | input | other — decides the message the user sees."""
+    if isinstance(e, NoReadableFiles):
+        return "input"
+    if isinstance(e, llm.LLMError):
+        return e.kind
+    return "other"
+
+
+def alert_admin(sb, message: str) -> None:
+    """Record an admin alert (at most one per kind per 24 h); the hourly send-reminders run emails it."""
+    try:
+        sb.rpc("raise_system_alert", {"p_kind": "ai_account", "p_message": message[:1000]}).execute()
+    except Exception:  # noqa: BLE001 — alerting must never hide the original failure
+        log.exception("Could not record the admin alert")
+
+
 def load_files(sb, tender_id: str) -> tuple[list[dict], list[str]]:
     """Read files in upload order. The order sets the file numbers the AI cites (1 = first)."""
     rows = (sb.table("tender_files").select("id, file_name, extracted_text")
@@ -98,7 +119,7 @@ def process_ai(sb, job: dict) -> None:
     try:
         files, file_ids = load_files(sb, tid)
         if not files:
-            raise ValueError("No readable PDFs for this tender. Upload or retry the files first.")
+            raise NoReadableFiles("No readable PDFs for this tender. Upload or retry the files first.")
         checked, summary, res = extract_fields(files)
         rows = requirement_rows(checked, tid, company, file_ids)
         decided = (sb.table("requirements").select("kind, description, doc_type")
@@ -120,6 +141,10 @@ def process_ai(sb, job: dict) -> None:
         log.info("AI done for %s: %s new requirements (%s already confirmed), %s low confidence, %.1fs",
                  tid, len(rows), skipped, summary["low_confidence"], res.seconds)
     except Exception as e:  # noqa: BLE001 — record any failure on the tender
+        kind = error_kind(e)
         msg = str(e) if isinstance(e, (ValueError, llm.LLMError)) else f"AI extraction failed ({e.__class__.__name__}): {e}"
-        log.exception("AI failed for %s", tid)
-        sb.table("tenders").update({"ai_status": "failed", "ai_error": msg[:500]}).eq("id", tid).execute()
+        log.exception("AI failed for %s (%s)", tid, kind)
+        # ai_error keeps the technical detail; the app shows a plain message chosen by ai_error_kind.
+        sb.table("tenders").update({"ai_status": "failed", "ai_error": msg[:500], "ai_error_kind": kind}).eq("id", tid).execute()
+        if kind == "account":
+            alert_admin(sb, msg)

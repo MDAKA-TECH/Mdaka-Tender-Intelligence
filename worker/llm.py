@@ -38,39 +38,77 @@ class LLMResult:
 
 
 class LLMError(RuntimeError):
-    pass
+    """A model call failed. `kind` tells the app what to show the user:
+      busy    - rate limit or overload; trying again in a few minutes usually works
+      account - out of credit/quota, billing problem, missing or rejected API key; only the admin can fix it
+      other   - anything else (bad output, unexpected reply)
+    The message itself is technical and is only shown in logs / technical details."""
+    kind = "other"
+
+    def __init__(self, message: str, kind: str | None = None):
+        super().__init__(message)
+        if kind:
+            self.kind = kind
 
 
 def _key(name: str) -> str:
     v = os.getenv(name)
     if not v:
-        raise LLMError(f"Set {name} in worker/.env to use this provider.")
+        raise LLMError(f"Set {name} in worker/.env to use this provider.", kind="account")
     return v
 
 
 class Overloaded(LLMError):
     """The provider is temporarily overloaded (HTTP 503/529). Worth retrying later or on another model."""
+    kind = "busy"
+
+
+# How providers word their errors. Checked in this order, because Gemini's per-minute rate limit also says
+# "You exceeded your current quota, please check your plan and billing details".
+_OUT_OF_CREDIT = ("insufficient_quota", "creditbalance", "billing_not_active", "billingdisabled", "paymentrequired")
+_SHORT_RATE_LIMIT = ("perminute", "permin", "ratelimit", "rate_limit", "tokensperminute", "requestsperminute")
+_ACCOUNT_HINTS = ("perday", "per_day", "daily", "exceededyourcurrentquota", "billing", "credits", "apikeynotvalid",
+                  "api_key_invalid", "permission_denied", "invalidx-api-key", "invalidapikey", "incorrectapikey")
+
+
+def classify_http_error(status: int, body: str) -> str:
+    """busy | account | other, from a provider's HTTP status and error body."""
+    text = body.lower().replace(" ", "")
+    if status in (401, 402, 403):
+        return "account"
+    if status == 429:
+        if any(h in text for h in _OUT_OF_CREDIT):
+            return "account"
+        if any(h in text for h in _SHORT_RATE_LIMIT):
+            return "busy"
+        return "account" if any(h in text for h in _ACCOUNT_HINTS) else "busy"
+    if status in (500, 502, 503, 504, 529):
+        return "busy"
+    if status == 400 and any(h in text for h in _OUT_OF_CREDIT + _ACCOUNT_HINTS):
+        return "account"
+    return "other"
 
 
 def _post(url: str, headers: dict, body: dict) -> dict:
     waits = [10, 30, 60]  # overload spikes on preview/free models usually clear within a minute or two
     for attempt in range(len(waits) + 1):
         r = httpx.post(url, headers=headers, json=body, timeout=TIMEOUT)
-        if r.status_code in (429, 500, 502, 503, 529) and attempt < len(waits):
+        if (r.status_code in (429, 500, 502, 503, 529) and attempt < len(waits)
+                and classify_http_error(r.status_code, r.text) != "account"):  # no point waiting on an empty account
             # Honour Retry-After when the provider sends it.
             ra = r.headers.get("retry-after")
             wait = float(ra) if ra and ra.replace(".", "", 1).isdigit() else waits[attempt]
             print(f"  model API busy ({r.status_code}), retrying in {wait:.0f}s…", file=sys.stderr)
             time.sleep(wait)
             continue
-        if r.status_code == 429:
-            raise LLMError("Rate limit reached (free tier allows only a few requests per minute/day). Try again later.")
         if r.status_code in (503, 529):
             raise Overloaded(f"{r.status_code}: the model is overloaded right now. Try again later or set LLM_FALLBACK_MODEL.")
         if r.status_code >= 400:
-            raise LLMError(f"{r.status_code} from model API: {r.text[:400]}")
+            kind = classify_http_error(r.status_code, r.text)
+            label = {"busy": "rate limited", "account": "account/quota problem"}.get(kind, "error")
+            raise LLMError(f"{r.status_code} from model API ({label}): {r.text[:400]}", kind=kind)
         return r.json()
-    raise LLMError("Model API kept failing")
+    raise LLMError("Model API kept failing", kind="busy")
 
 
 def _anthropic(model: str, user: str) -> tuple[dict, int | None, int | None]:
@@ -166,7 +204,7 @@ PROVIDERS = {"anthropic": _anthropic, "openai": _openai, "gemini": _gemini, "fix
 def provider_and_model() -> tuple[str, str]:
     provider = (os.getenv("LLM_PROVIDER") or "").strip().lower()
     if provider not in PROVIDERS:
-        raise LLMError(f"Set LLM_PROVIDER to one of: {', '.join(PROVIDERS)}.")
+        raise LLMError(f"Set LLM_PROVIDER to one of: {', '.join(PROVIDERS)}.", kind="account")
     return provider, os.getenv("LLM_MODEL") or DEFAULT_MODELS.get(provider, "fixture")
 
 
