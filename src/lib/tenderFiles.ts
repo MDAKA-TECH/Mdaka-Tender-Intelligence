@@ -1,23 +1,42 @@
 import { friendlyError, supabase } from './supabase';
 
 export const TENDER_BUCKET = 'tenders';
-export const MAX_PDF_BYTES = 50 * 1024 * 1024;
+export const MAX_FILE_BYTES = 50 * 1024 * 1024;
+export const TENDER_FILE_ACCEPT =
+  '.pdf,.docx,.doc,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/msword';
 
-export function checkPdf(f: File): string | null {
-  const isPdf = f.type === 'application/pdf' || f.name.toLowerCase().endsWith('.pdf');
-  if (!isPdf) return `${f.name} is not a PDF.`;
-  if (f.size > MAX_PDF_BYTES) return `${f.name} is over 50 MB.`;
+const DOCX = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
+
+export function fileKind(name: string): 'pdf' | 'word' | null {
+  const n = name.toLowerCase();
+  if (n.endsWith('.pdf')) return 'pdf';
+  if (n.endsWith('.docx') || n.endsWith('.doc')) return 'word';
+  return null;
+}
+
+// Tender packs may be PDF or Word. Word files are converted to PDF by the worker.
+export function checkTenderFile(f: File): string | null {
+  const kind = fileKind(f.name) ?? (f.type === 'application/pdf' ? 'pdf' : f.type === DOCX || f.type === 'application/msword' ? 'word' : null);
+  if (!kind) return `${f.name} isn't a PDF or Word document.`;
+  if (f.size > MAX_FILE_BYTES) return `${f.name} is over 50 MB.`;
   if (f.size === 0) return `${f.name} is empty.`;
   return null;
 }
 
-// Uploads each PDF and queues it for the extraction worker. Returns the names that failed.
+function contentType(f: File): string {
+  const n = f.name.toLowerCase();
+  if (n.endsWith('.docx')) return DOCX;
+  if (n.endsWith('.doc')) return 'application/msword';
+  return 'application/pdf';
+}
+
+// Uploads each file and queues it for the extraction worker. Returns the names that failed.
 export async function uploadTenderFiles(companyId: string, tenderId: string, files: File[]): Promise<{ failed: { name: string; error: string }[] }> {
   const failed: { name: string; error: string }[] = [];
   for (const file of files) {
     const safe = file.name.replace(/[^\w.\-]+/g, '_').slice(-80);
     const path = `${companyId}/${tenderId}/${crypto.randomUUID()}-${safe}`;
-    const up = await supabase.storage.from(TENDER_BUCKET).upload(path, file, { contentType: 'application/pdf', upsert: false });
+    const up = await supabase.storage.from(TENDER_BUCKET).upload(path, file, { contentType: contentType(file), upsert: false });
     if (up.error) {
       failed.push({ name: file.name, error: friendlyError(up.error) });
       continue;

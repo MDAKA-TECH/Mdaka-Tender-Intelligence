@@ -16,7 +16,7 @@ export function friendlyError(e: { message?: string; code?: string } | null | un
   if (/Failed to fetch/i.test(m)) return "Can't reach the server. Check your connection.";
   if (/companies_csd_supplier_no_check/.test(m)) return 'CSD supplier numbers look like MAAA1234567.';
   if (/exceeded the maximum allowed size|Payload too large/i.test(m)) return 'That file is too big. The limit is 10 MB.';
-  if (/mime type .* is not supported/i.test(m)) return 'Upload a PDF, JPG or PNG.';
+  if (/mime type .* is not supported/i.test(m)) return 'That file type isn\'t accepted here.';
   if (/Invalid login credentials/i.test(m)) return 'Email or password is wrong.';
   if (/Email not confirmed/i.test(m)) return 'Confirm your email first. Check your inbox for the link.';
   return m || 'Something went wrong. Try again.';

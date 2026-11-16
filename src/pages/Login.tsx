@@ -83,6 +83,9 @@ export default function Login() {
               {signup ? 'Sign in' : 'Create an account'}
             </button>
           </p>
+          <p className="small muted" style={{ margin: 0 }}>
+            {signup ? 'By creating an account you agree to the ' : ''}<a href="#/terms">{signup ? 'terms of use' : 'Terms of use'}</a>{signup ? ' and ' : ' · '}<a href="#/privacy">{signup ? 'privacy notice' : 'Privacy notice'}</a>{signup ? '.' : ''}
+          </p>
         </div>
       </div>
     </div>

@@ -1,4 +1,4 @@
-# Extraction worker image (Railway, Render, Fly.io or any Docker host). Includes Tesseract OCR.
+# Extraction worker image (any Docker host). Includes Tesseract OCR and LibreOffice (Word → PDF).
 # Secrets are NOT baked in: set SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, LLM_PROVIDER, LLM_MODEL,
 # GEMINI_API_KEY (etc.) as environment variables on the host.
 FROM python:3.12-slim
@@ -9,6 +9,7 @@ ENV PYTHONUNBUFFERED=1 \
 
 RUN apt-get update \
     && apt-get install -y --no-install-recommends tesseract-ocr tesseract-ocr-eng \
+       libreoffice-writer-nogui fonts-liberation fonts-dejavu-core \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app

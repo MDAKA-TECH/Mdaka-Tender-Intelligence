@@ -111,16 +111,16 @@ def _post(url: str, headers: dict, body: dict) -> dict:
     raise LLMError("Model API kept failing", kind="busy")
 
 
-def _anthropic(model: str, user: str) -> tuple[dict, int | None, int | None]:
+def _anthropic(model: str, user: str, system: str = SYSTEM_PROMPT, schema: dict = SCHEMA, name: str = "record_tender_facts") -> tuple[dict, int | None, int | None]:
     body = {
         "model": model,
         "max_tokens": MAX_OUTPUT_TOKENS,
         "temperature": 0,
-        "system": SYSTEM_PROMPT,
+        "system": system,
         "messages": [{"role": "user", "content": user}],
         # A forced tool call makes the model return input that follows the schema.
-        "tools": [{"name": "record_tender_facts", "description": "Record the extracted tender facts.", "input_schema": SCHEMA}],
-        "tool_choice": {"type": "tool", "name": "record_tender_facts"},
+        "tools": [{"name": name, "description": "Record the answer.", "input_schema": schema}],
+        "tool_choice": {"type": "tool", "name": name},
     }
     res = _post("https://api.anthropic.com/v1/messages",
                 {"x-api-key": _key("ANTHROPIC_API_KEY"), "anthropic-version": "2023-06-01"}, body)
@@ -131,13 +131,13 @@ def _anthropic(model: str, user: str) -> tuple[dict, int | None, int | None]:
     return block["input"], u.get("input_tokens"), u.get("output_tokens")
 
 
-def _openai(model: str, user: str) -> tuple[dict, int | None, int | None]:
+def _openai(model: str, user: str, system: str = SYSTEM_PROMPT, schema: dict = SCHEMA, name: str = "tender_facts") -> tuple[dict, int | None, int | None]:
     body = {
         "model": model,
         "temperature": 0,
         "max_completion_tokens": MAX_OUTPUT_TOKENS,
-        "messages": [{"role": "system", "content": SYSTEM_PROMPT}, {"role": "user", "content": user}],
-        "response_format": {"type": "json_schema", "json_schema": {"name": "tender_facts", "strict": True, "schema": SCHEMA}},
+        "messages": [{"role": "system", "content": system}, {"role": "user", "content": user}],
+        "response_format": {"type": "json_schema", "json_schema": {"name": name, "strict": True, "schema": schema}},
     }
     res = _post("https://api.openai.com/v1/chat/completions", {"Authorization": f"Bearer {_key('OPENAI_API_KEY')}"}, body)
     msg = res["choices"][0]["message"]
@@ -147,15 +147,15 @@ def _openai(model: str, user: str) -> tuple[dict, int | None, int | None]:
     return json.loads(msg["content"]), u.get("prompt_tokens"), u.get("completion_tokens")
 
 
-def _gemini(model: str, user: str) -> tuple[dict, int | None, int | None]:
+def _gemini(model: str, user: str, system: str = SYSTEM_PROMPT, schema: dict = SCHEMA, name: str = "") -> tuple[dict, int | None, int | None]:
     # Gemini's responseSchema dialect differs from JSON Schema, so the schema goes in the prompt
     # and the reply is validated by our own validator afterwards.
     config = {"temperature": 0, "responseMimeType": "application/json", "maxOutputTokens": MAX_OUTPUT_TOKENS,
               # Extraction needs little reasoning; low thinking leaves the token budget for the answer.
               "thinkingConfig": {"thinkingLevel": os.getenv("GEMINI_THINKING_LEVEL", "low")}}
     body = {
-        "systemInstruction": {"parts": [{"text": SYSTEM_PROMPT}]},
-        "contents": [{"role": "user", "parts": [{"text": user + "\n\nReturn ONLY JSON matching this JSON Schema:\n" + json.dumps(SCHEMA)}]}],
+        "systemInstruction": {"parts": [{"text": system}]},
+        "contents": [{"role": "user", "parts": [{"text": user + "\n\nReturn ONLY JSON matching this JSON Schema:\n" + json.dumps(schema)}]}],
         "generationConfig": config,
     }
     url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent"
@@ -190,7 +190,7 @@ def _gemini(model: str, user: str) -> tuple[dict, int | None, int | None]:
     return data, u.get("promptTokenCount"), u.get("candidatesTokenCount")
 
 
-def _fixture(_model: str, _user: str) -> tuple[dict, None, None]:
+def _fixture(_model: str, _user: str, *_args, **_kw) -> tuple[dict, None, None]:
     path = os.getenv("LLM_FIXTURE")
     if not path:
         raise LLMError("Set LLM_FIXTURE to a saved response JSON.")
@@ -208,11 +208,13 @@ def provider_and_model() -> tuple[str, str]:
     return provider, os.getenv("LLM_MODEL") or DEFAULT_MODELS.get(provider, "fixture")
 
 
-def call(user_prompt: str) -> LLMResult:
+def call(user_prompt: str, system: str | None = None, schema: dict | None = None, name: str | None = None) -> LLMResult:
+    """One structured model call. Defaults to the tender-extraction prompt and schema."""
     provider, model = provider_and_model()
     t = time.monotonic()
+    extra = {k: v for k, v in (("system", system), ("schema", schema), ("name", name)) if v is not None}
     try:
-        data, i, o = PROVIDERS[provider](model, user_prompt)
+        data, i, o = PROVIDERS[provider](model, user_prompt, **extra)
     except Overloaded:
         # Optional second model from the same provider, e.g. a Flash-Lite model when Flash is busy.
         fallback = os.getenv("LLM_FALLBACK_MODEL")
@@ -220,5 +222,5 @@ def call(user_prompt: str) -> LLMResult:
             raise
         print(f"  {model} overloaded, using fallback {fallback}", file=sys.stderr)
         model = fallback
-        data, i, o = PROVIDERS[provider](model, user_prompt)
+        data, i, o = PROVIDERS[provider](model, user_prompt, **extra)
     return LLMResult(data=data, provider=provider, model=model, input_tokens=i, output_tokens=o, seconds=time.monotonic() - t)

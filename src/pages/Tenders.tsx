@@ -1,10 +1,10 @@
 import { useEffect, useMemo, useState, type FormEvent } from 'react';
-import { ChevronRight, Plus } from 'lucide-react';
+import { Check, ChevronRight, Plus, Sparkles } from 'lucide-react';
 import { friendlyError, supabase } from '../lib/supabase';
 import { ACTIVE_STATUSES, STATUS_TONE, TENDER_STATUS_LABEL, docTypeInfo, type Tone, type Company, type Tender, type TenderStatus } from '../lib/types';
 import { EXPIRING_DAYS, closingIn, daysUntil, fmtDateTime, fmtSize, fromLocalInput } from '../lib/dates';
 import type { VaultDoc } from '../lib/vault';
-import { checkPdf, uploadTenderFiles } from '../lib/tenderFiles';
+import { TENDER_FILE_ACCEPT, checkTenderFile, uploadTenderFiles } from '../lib/tenderFiles';
 import { Modal, useToast } from '../components/ui';
 
 interface Row extends Tender {
@@ -22,6 +22,24 @@ const TABS: { tab: Tab; label: string; tone: Tone; match: (s: TenderStatus) => b
   { tab: 'all', label: 'All', tone: 'slate', match: () => true },
 ];
 const TAB_KEY = 'ti.tenders.tab';
+const GUIDE_KEY = 'ti.guide.hidden';
+const SAMPLE = { url: '/sample/RFQ_906_2026.pdf', name: 'Sample - RFQ 906-2026 (Parliament, data analyst services).pdf' };
+
+// A real, public RFQ from the Parliament of RSA, so a new account can see the whole flow in a minute.
+async function createSampleTender(companyId: string): Promise<string> {
+  const res = await fetch(SAMPLE.url);
+  if (!res.ok) throw new Error("Couldn't load the sample document.");
+  const file = new File([await res.blob()], SAMPLE.name, { type: 'application/pdf' });
+  const { data, error } = await supabase
+    .from('tenders')
+    .insert({ description: 'Sample tender: try the app with a real RFQ', status: 'reviewing' })
+    .select('id')
+    .single();
+  if (error || !data) throw new Error(friendlyError(error));
+  const { failed } = await uploadTenderFiles(companyId, data.id, [file]);
+  if (failed.length) throw new Error(failed[0].error);
+  return data.id;
+}
 
 export default function Tenders({ company, onOpen, onOpenVault }: { company: Company; onOpen: (id: string) => void; onOpenVault: () => void }) {
   const [rows, setRows] = useState<Row[] | null>(null);
@@ -36,6 +54,19 @@ export default function Tenders({ company, onOpen, onOpenVault }: { company: Com
     }
   });
   const [q, setQ] = useState('');
+  const [sampleBusy, setSampleBusy] = useState(false);
+  const toast = useToast();
+  const trySample = async () => {
+    setSampleBusy(true);
+    try {
+      const id = await createSampleTender(company.id);
+      toast('Sample tender added. Reading it now.');
+      onOpen(id);
+    } catch (e) {
+      toast(e instanceof Error ? e.message : String(e));
+      setSampleBusy(false);
+    }
+  };
 
   useEffect(() => {
     supabase
@@ -72,12 +103,14 @@ export default function Tenders({ company, onOpen, onOpenVault }: { company: Com
       <div className="page-head">
         <div>
           <h1>Tenders</h1>
-          <p>Upload a tender pack to start. Each PDF is read page by page so its requirements can be pulled out.</p>
+          <p>Upload a tender pack (PDF or Word) to start. Each document is read page by page so its requirements can be pulled out.</p>
         </div>
         <button className="btn primary" onClick={() => setCreating(true)}><Plus className="ico" aria-hidden="true" />New tender</button>
       </div>
 
       {error && <div className="callout crit">{error}</div>}
+
+      {rows && <GettingStarted rows={rows} vault={vault} sampleBusy={sampleBusy} onSample={trySample} onNew={() => setCreating(true)} onOpenVault={onOpenVault} />}
 
       {rows && rows.length > 0 && <ComingUp rows={rows} vault={vault} onOpen={onOpen} onOpenVault={onOpenVault} />}
 
@@ -87,8 +120,11 @@ export default function Tenders({ company, onOpen, onOpenVault }: { company: Com
         ) : rows.length === 0 ? (
           <div className="panel-body empty-state">
             <b>No tenders yet</b>
-            <p className="muted">Add the RFQ or tender document you're working on, with its annexures and SBD forms.</p>
-            <button className="btn primary" onClick={() => setCreating(true)}>New tender</button>
+            <p className="muted">Add the RFQ or tender you're working on, with its annexures and SBD forms. Not sure yet? Try a sample: a real RFQ, read and checked in about a minute.</p>
+            <div className="toolbar">
+              <button className="btn primary" onClick={() => setCreating(true)}><Plus className="ico" aria-hidden="true" />New tender</button>
+              <button className="btn" onClick={trySample} disabled={sampleBusy}><Sparkles className="ico" aria-hidden="true" />{sampleBusy ? 'Adding sample…' : 'Try a sample tender'}</button>
+            </div>
           </div>
         ) : (
           <>
@@ -181,6 +217,54 @@ export default function Tenders({ company, onOpen, onOpenVault }: { company: Com
 
       {creating && <NewTenderModal companyId={company.id} onClose={() => setCreating(false)} onCreated={onOpen} />}
     </div>
+  );
+}
+
+// ---------------------------------------------------------------- getting started
+
+function GettingStarted({ rows, vault, sampleBusy, onSample, onNew, onOpenVault }: {
+  rows: Row[]; vault: VaultDoc[]; sampleBusy: boolean; onSample: () => void; onNew: () => void; onOpenVault: () => void;
+}) {
+  const [hidden, setHidden] = useState(() => {
+    try { return localStorage.getItem(GUIDE_KEY) === '1'; } catch { return false; }
+  });
+  const steps = [
+    { done: vault.length > 0, title: 'Add your compliance documents', body: 'Tax PIN, CSD report, B-BBEE and the rest go in the vault once. Every checklist shows what you already have, and you get emails before they expire.', action: <button className="btn" onClick={onOpenVault}>Open the vault</button> },
+    { done: rows.length > 0, title: 'Upload a tender', body: 'PDF or Word, with its annexures and SBD forms. Each page is read, scans included.', action: (
+      <div className="toolbar">
+        <button className="btn" onClick={onNew}>New tender</button>
+        <button className="btn ghost" onClick={onSample} disabled={sampleBusy}>{sampleBusy ? 'Adding…' : 'or try a sample'}</button>
+      </div>
+    ) },
+    { done: rows.some((r) => r.requirements.some((q) => q.confirmed)), title: 'Review the checklist', body: 'The AI lists deadlines, returnable documents and disqualification rules, each with its page. Confirm what is right; only confirmed items reach your checklist.', action: null },
+  ];
+  const left = steps.filter((s) => !s.done).length;
+  if (hidden || left === 0) return null;
+  const hide = () => {
+    setHidden(true);
+    try { localStorage.setItem(GUIDE_KEY, '1'); } catch { /* fine */ }
+  };
+  const next = steps.findIndex((s) => !s.done);
+  return (
+    <section className="panel guide" aria-labelledby="guide-head">
+      <div className="panel-head">
+        <h2 id="guide-head">Get started</h2>
+        <span className="small muted">{3 - left} of 3 done</span>
+        <button className="btn ghost" onClick={hide} style={{ marginLeft: 'auto' }}>Hide</button>
+      </div>
+      <ol className="guide-steps">
+        {steps.map((s, i) => (
+          <li key={s.title} className={s.done ? 'done' : i === next ? 'next' : ''}>
+            <span className="guide-n" aria-hidden="true">{s.done ? <Check className="ico" /> : i + 1}</span>
+            <div>
+              <b>{s.title}{s.done && <span className="sr-only"> (done)</span>}</b>
+              <p className="small muted">{s.body}</p>
+              {!s.done && i === next && s.action}
+            </div>
+          </li>
+        ))}
+      </ol>
+    </section>
   );
 }
 
@@ -284,15 +368,15 @@ function NewTenderModal({ companyId, onClose, onCreated }: { companyId: string; 
   const addFiles = (list: FileList | null) => {
     if (!list) return;
     const picked = Array.from(list);
-    const bad = picked.map(checkPdf).filter(Boolean);
+    const bad = picked.map(checkTenderFile).filter(Boolean);
     setError(bad.length ? bad.join(' ') : null);
-    const ok = picked.filter((f) => !checkPdf(f));
+    const ok = picked.filter((f) => !checkTenderFile(f));
     setFiles((cur) => [...cur, ...ok.filter((f) => !cur.some((c) => c.name === f.name && c.size === f.size))]);
   };
 
   const submit = async (ev: FormEvent) => {
     ev.preventDefault();
-    if (files.length === 0) return setError('Add at least one PDF.');
+    if (files.length === 0) return setError('Add at least one PDF or Word document.');
     setError(null);
     setBusy('Creating tender…');
     const { data, error: e } = await supabase
@@ -312,7 +396,7 @@ function NewTenderModal({ companyId, onClose, onCreated }: { companyId: string; 
     }
     setBusy(`Uploading ${files.length} file${files.length > 1 ? 's' : ''}…`);
     const { failed } = await uploadTenderFiles(companyId, data.id, files);
-    toast(failed.length ? `Tender created. ${failed.length} file(s) failed to upload.` : 'Tender created. Reading the PDFs now.');
+    toast(failed.length ? `Tender created. ${failed.length} file(s) failed to upload.` : 'Tender created. Reading the documents now.');
     onCreated(data.id);
   };
 
@@ -331,8 +415,8 @@ function NewTenderModal({ companyId, onClose, onCreated }: { companyId: string; 
     >
       <form id="tender-form" onSubmit={submit} style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
         <div className="file-pick">
-          <span className="small">Tender PDFs: the main document, annexures and SBD forms (max 50 MB each)</span>
-          <input type="file" accept=".pdf,application/pdf" multiple onChange={(e) => { addFiles(e.target.files); e.target.value = ''; }} />
+          <span className="small">Tender documents, PDF or Word: the main document, annexures and SBD forms (max 50 MB each)</span>
+          <input type="file" accept={TENDER_FILE_ACCEPT} multiple onChange={(e) => { addFiles(e.target.files); e.target.value = ''; }} />
           {files.length > 0 && (
             <ul className="picked">
               {files.map((f) => (
@@ -347,7 +431,7 @@ function NewTenderModal({ companyId, onClose, onCreated }: { companyId: string; 
             </ul>
           )}
         </div>
-        <p className="hint" style={{ margin: 0 }}>The fields below are optional. After the PDFs are read, use "Fill tender details" on the tender page to copy them from the documents.</p>
+        <p className="hint" style={{ margin: 0 }}>The fields below are optional. After the documents are read, use "Fill tender details" on the tender page to copy them from the documents.</p>
         <div className="form-grid">
           <label className="field">
             <span>Reference number</span>

@@ -6,10 +6,11 @@ import ReviewPanel, { type DetailsPrefill } from '../components/ReviewPanel';
 import { fieldValue } from '../lib/fields';
 import type { VaultDoc } from '../lib/vault';
 import { closingIn, fmtDateTime, fmtSize, fromLocalInput, toLocalInput } from '../lib/dates';
-import { TENDER_BUCKET, checkPdf, uploadTenderFiles } from '../lib/tenderFiles';
+import { TENDER_BUCKET, TENDER_FILE_ACCEPT, checkTenderFile, fileKind, uploadTenderFiles } from '../lib/tenderFiles';
+import SourceViewer from '../components/SourceViewer';
 import { Modal, useToast } from '../components/ui';
 
-const FILE_COLS = 'id, tender_id, file_path, file_name, file_size, status, error, page_count, ocr_used, ocr_pages, extracted_at, created_at';
+const FILE_COLS = 'id, tender_id, file_path, file_name, file_size, status, error, page_count, ocr_used, ocr_pages, extracted_at, created_at, preview_path, files_removed_at';
 const POLL_MS = 4000;
 const AI_COLS = 'ai_status, ai_error, ai_error_kind, ai_model, ai_extracted_at, ai_claimed_at, ai_file_ids, ai_fields';
 const REQ_COLS = 'id, kind, description, doc_type, mandatory, conditions, source_file_id, source_page, confidence, quote, verified, notes, added_by, confirmed, status, sort_order';
@@ -21,7 +22,8 @@ export default function TenderDetail({ id, company, user, onBack, onOpenVault }:
   const [tender, setTender] = useState<Tender | null>(null);
   const [files, setFiles] = useState<TenderFile[] | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [viewing, setViewing] = useState<{ file: TenderFile; page?: number; query?: string } | null>(null);
+  const [viewing, setViewing] = useState<{ file: TenderFile; page?: number; query?: string; mode: 'pdf' | 'text' } | null>(null);
+  const [removingPdfs, setRemovingPdfs] = useState(false);
   const [ai, setAi] = useState<TenderAi | null>(null);
   const [reqs, setReqs] = useState<Requirement[]>([]);
   const [vault, setVault] = useState<VaultDoc[]>([]);
@@ -33,6 +35,7 @@ export default function TenderDetail({ id, company, user, onBack, onOpenVault }:
   const [savingStatus, setSavingStatus] = useState(false);
   const [exporting, setExporting] = useState(false);
   const [rev, setRev] = useState(0); // bump to reload reminders + activity
+  const [aiLoadError, setAiLoadError] = useState<string | null>(null);
 
   const loadFiles = useCallback(async () => {
     const { data, error: e } = await supabase.from('tender_files').select(FILE_COLS).eq('tender_id', id).order('created_at');
@@ -49,7 +52,10 @@ export default function TenderDetail({ id, company, user, onBack, onOpenVault }:
 
   const loadAi = useCallback(async () => {
     const { data, error: e } = await supabase.from('tenders').select(AI_COLS).eq('id', id).maybeSingle();
-    if (e || !data) return;
+    // A missing column usually means a database migration hasn't been run yet: say so instead of hiding the panel.
+    if (e) return setAiLoadError(friendlyError(e));
+    if (!data) return;
+    setAiLoadError(null);
     const next = data as TenderAi;
     setAi((prev) => {
       // A run just finished: fetch its new requirement rows.
@@ -106,9 +112,9 @@ export default function TenderDetail({ id, company, user, onBack, onOpenVault }:
   const addFiles = async (list: FileList | null) => {
     if (!list || !tender) return;
     const picked = Array.from(list);
-    const bad = picked.map(checkPdf).filter(Boolean) as string[];
+    const bad = picked.map(checkTenderFile).filter(Boolean) as string[];
     if (bad.length) toast(bad.join(' '));
-    const ok = picked.filter((f) => !checkPdf(f));
+    const ok = picked.filter((f) => !checkTenderFile(f));
     if (!ok.length) return;
     setUploading(true);
     const { failed } = await uploadTenderFiles(company.id, tender.id, ok);
@@ -158,8 +164,9 @@ export default function TenderDetail({ id, company, user, onBack, onOpenVault }:
     }
   };
 
+  // Word files open as the PDF the worker made from them (once it has), so they look the same everywhere.
   const openPdf = async (f: TenderFile) => {
-    const { data, error: e } = await supabase.storage.from(TENDER_BUCKET).createSignedUrl(f.file_path, 60);
+    const { data, error: e } = await supabase.storage.from(TENDER_BUCKET).createSignedUrl(f.preview_path || f.file_path, 60);
     if (e || !data) return toast(friendlyError(e));
     window.open(data.signedUrl, '_blank', 'noopener');
   };
@@ -174,24 +181,33 @@ export default function TenderDetail({ id, company, user, onBack, onOpenVault }:
   if (!tender || !files) return <div className="page"><p className="muted">Loading…</p></div>;
 
   const c = tender.closing_at ? closingIn(tender.closing_at) : null;
+  // Once a tender is no longer active its files can go, to save storage. Text, checklist and AI results stay.
+  const canRemovePdfs = !ACTIVE_STATUSES.includes(tender.status) && files.some((f) => f.status === 'done' && !f.files_removed_at);
   const docsFirst = reqs.length === 0;
   const documentsPanel = (
     <section className="panel">
       <div className="panel-head">
         <h2>Documents</h2>
         <label className={`btn ${uploading ? 'disabled' : ''}`}>
-          {uploading ? 'Uploading…' : 'Add PDFs'}
-          <input type="file" accept=".pdf,application/pdf" multiple hidden disabled={uploading} onChange={(e) => { addFiles(e.target.files); e.target.value = ''; }} />
+          {uploading ? 'Uploading…' : 'Add documents'}
+          <input type="file" accept={TENDER_FILE_ACCEPT} multiple hidden disabled={uploading} onChange={(e) => { addFiles(e.target.files); e.target.value = ''; }} />
         </label>
       </div>
       {stuck && (
         <div className="callout warn" style={{ margin: 16, marginBottom: 0 }}>
-          <b>Files are waiting for the extraction worker</b>
-          Start it on your computer with <span className="mono">python worker.py</span> in the <span className="mono">worker</span> folder.
+          <b>Files are still waiting to be read</b>
+          The reading service hasn't picked them up yet. It usually starts within a minute; if this stays, the worker server may be off.
         </div>
       )}
       {files.length === 0 ? (
-        <p className="panel-body muted">No PDFs yet. Add the tender document and its annexures.</p>
+        <div className="empty-state">
+          <b>No documents yet</b>
+          <p className="muted">Add the tender document and its annexures, as PDF or Word. Each one is read page by page, then the AI builds your checklist.</p>
+          <label className={`btn primary ${uploading ? 'disabled' : ''}`}>
+            {uploading ? 'Uploading…' : 'Add documents'}
+            <input type="file" accept={TENDER_FILE_ACCEPT} multiple hidden disabled={uploading} onChange={(e) => { addFiles(e.target.files); e.target.value = ''; }} />
+          </label>
+        </div>
       ) : (
         <ul className="doc-list">
           {files.map((f) => (
@@ -199,18 +215,20 @@ export default function TenderDetail({ id, company, user, onBack, onOpenVault }:
               <div className="what">
                 <b className="file" title={f.file_name}>{f.file_name}</b>
                 <div className="meta">
+                  {fileKind(f.file_name) === 'word' && <span>Word</span>}
                   {f.file_size != null && <span>{fmtSize(f.file_size)}</span>}
                   {f.page_count != null && <span>{f.page_count} pages</span>}
                   {f.ocr_pages.length > 0 && <span>OCR on {f.ocr_pages.length === f.page_count ? 'all pages' : `p. ${f.ocr_pages.join(', ')}`}</span>}
                   <span>Uploaded {fmtDateTime(f.created_at)}</span>
+                  {f.files_removed_at && <span>File removed {fmtDateTime(f.files_removed_at)} · text kept</span>}
                 </div>
                 {f.error && <div className={`small ${f.status === 'failed' ? 'crit-text' : 'warn-text'}`}>{f.error}</div>}
               </div>
               <div className="actions">
                 <ExtractionPill status={f.status} />
-                {f.status === 'done' && <button className="btn" onClick={() => setViewing({ file: f })}>View text</button>}
-                {f.status === 'failed' && <button className="btn" onClick={() => retry(f)}>Retry</button>}
-                <button className="btn" onClick={() => openPdf(f)}>Open PDF</button>
+                {f.status === 'done' && <button className="btn" onClick={() => setViewing({ file: f, mode: 'text' })}>View text</button>}
+                {f.status === 'failed' && !f.files_removed_at && <button className="btn" onClick={() => retry(f)}>Retry</button>}
+                {!f.files_removed_at && (fileKind(f.file_name) !== 'word' || f.preview_path) && <button className="btn" onClick={() => openPdf(f)}>Open</button>}
                 <button className="btn danger" onClick={() => setRemovingFile(f)}>Delete</button>
               </div>
             </li>
@@ -218,9 +236,14 @@ export default function TenderDetail({ id, company, user, onBack, onOpenVault }:
         </ul>
       )}
       {totals.done > 0 && (
-        <div className="panel-foot small muted">
-          {totals.pages} pages read from {totals.done} file{totals.done > 1 ? 's' : ''}
-          {totals.ocr > 0 && `, ${totals.ocr} by OCR`}.
+        <div className="panel-foot small muted foot-split">
+          <span>
+            {totals.pages} pages read from {totals.done} file{totals.done > 1 ? 's' : ''}
+            {totals.ocr > 0 && `, ${totals.ocr} by OCR`}.
+          </span>
+          {canRemovePdfs && (
+            <button className="btn ghost" onClick={() => setRemovingPdfs(true)}>Remove stored files</button>
+          )}
         </div>
       )}
     </section>
@@ -253,6 +276,13 @@ export default function TenderDetail({ id, company, user, onBack, onOpenVault }:
       <div className="grid g-3-1">
         <div className="main-col">
           {docsFirst && documentsPanel}
+          {aiLoadError && (
+            <div className="callout crit">
+              <b>Couldn't load the requirements</b>
+              {aiLoadError} If the message mentions a column that does not exist, run the latest file in supabase/migrations in the
+              Supabase SQL editor, then refresh.
+            </div>
+          )}
           {ai && (
             <ReviewPanel
               tender={tender}
@@ -269,8 +299,9 @@ export default function TenderDetail({ id, company, user, onBack, onOpenVault }:
               }}
               onOpenSource={(fileId, page, quote) => {
                 const f = files.find((x) => x.id === fileId);
-                if (f && f.status === 'done') setViewing({ file: f, page: page ?? undefined, query: quote ?? undefined });
-                else toast('That file is no longer available.');
+                if (!f || f.status !== 'done') return toast('That file is no longer available.');
+                // The real page with the quote highlighted; the extracted text once the file itself has been removed.
+                setViewing({ file: f, page: page ?? undefined, query: quote ?? undefined, mode: f.files_removed_at ? 'text' : 'pdf' });
               }}
             />
           )}
@@ -303,7 +334,32 @@ export default function TenderDetail({ id, company, user, onBack, onOpenVault }:
         </Modal>
       )}
 
-      {viewing && <TextViewer file={viewing.file} initialPage={viewing.page} initialQuery={viewing.query} onClose={() => setViewing(null)} />}
+      {viewing?.mode === 'pdf' && (
+        <SourceViewer
+          file={viewing.file}
+          initialPage={viewing.page}
+          quote={viewing.query}
+          onClose={() => setViewing(null)}
+          onShowText={(page) => setViewing({ ...viewing, page, mode: 'text' })}
+        />
+      )}
+      {viewing?.mode === 'text' && <TextViewer file={viewing.file} initialPage={viewing.page} initialQuery={viewing.query} onClose={() => setViewing(null)} />}
+      {removingPdfs && (
+        <ConfirmModal
+          title="Remove stored files?"
+          confirmLabel="Remove files"
+          body={<>The {files.filter((f) => f.status === 'done' && !f.files_removed_at).length} uploaded file(s) for <b>{tender.reference_no || 'this tender'}</b> are deleted to save space. The extracted text, checklist, AI results and page references stay, so you can still read and search everything. You won't be able to open the original files again.</>}
+          onClose={() => setRemovingPdfs(false)}
+          onConfirm={async () => {
+            const { data, error: e } = await supabase.rpc('remove_tender_files', { p_tender: tender.id });
+            if (e) return friendlyError(e);
+            setRemovingPdfs(false);
+            toast(`Removed ${data ?? 0} file(s). The text is kept.`);
+            loadFiles();
+            return null;
+          }}
+        />
+      )}
       {removingFile && (
         <ConfirmModal
           title="Delete file?"
@@ -312,7 +368,7 @@ export default function TenderDetail({ id, company, user, onBack, onOpenVault }:
           onConfirm={async () => {
             const { error: e } = await supabase.from('tender_files').delete().eq('id', removingFile.id);
             if (e) return friendlyError(e);
-            await supabase.storage.from(TENDER_BUCKET).remove([removingFile.file_path]);
+            if (!removingFile.files_removed_at) await supabase.storage.from(TENDER_BUCKET).remove([removingFile.file_path, removingFile.preview_path].filter(Boolean) as string[]);
             setRemovingFile(null);
             toast('File deleted.');
             loadFiles();
@@ -328,7 +384,8 @@ export default function TenderDetail({ id, company, user, onBack, onOpenVault }:
           onConfirm={async () => {
             const { error: e } = await supabase.from('tenders').delete().eq('id', tender.id);
             if (e) return friendlyError(e);
-            if (files.length) await supabase.storage.from(TENDER_BUCKET).remove(files.map((f) => f.file_path));
+            const paths = files.filter((f) => !f.files_removed_at).flatMap((f) => [f.file_path, f.preview_path]).filter(Boolean) as string[];
+            if (paths.length) await supabase.storage.from(TENDER_BUCKET).remove(paths);
             toast('Tender deleted.');
             onBack();
             return null;
@@ -669,7 +726,7 @@ function Highlight({ text, term }: { text: string; term: string }) {
 
 // ---------------------------------------------------------------- confirm
 
-function ConfirmModal({ title, body, onClose, onConfirm }: { title: string; body: React.ReactNode; onClose: () => void; onConfirm: () => Promise<string | null> }) {
+function ConfirmModal({ title, body, onClose, onConfirm, confirmLabel = 'Delete' }: { title: string; body: React.ReactNode; onClose: () => void; onConfirm: () => Promise<string | null>; confirmLabel?: string }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   return (
@@ -689,7 +746,7 @@ function ConfirmModal({ title, body, onClose, onConfirm }: { title: string; body
               if (err) { setError(err); setBusy(false); }
             }}
           >
-            {busy ? 'Deleting…' : 'Delete'}
+            {busy ? 'Working…' : confirmLabel}
           </button>
         </>
       }

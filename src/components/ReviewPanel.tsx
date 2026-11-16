@@ -6,6 +6,7 @@ import { FIELD_LABEL, KIND_LABEL, fieldValue } from '../lib/fields';
 import { matchVault, type VaultDoc } from '../lib/vault';
 import { ChevronRight } from 'lucide-react';
 import { Modal, useToast } from './ui';
+import AskPanel from './AskPanel';
 
 // AI results → a person reviews each item → confirmed items become the checklist.
 // Nothing reaches the checklist without a person confirming it.
@@ -24,6 +25,8 @@ type SourceFn = (fileId: string | null, page: number | null, quote: string | nul
 
 const EDIT_KINDS: RequirementKind[] = ['document', 'form', 'certification', 'pricing', 'disqualifier', 'special'];
 const isDoc = (r: Requirement) => r.kind !== 'disqualifier' && r.kind !== 'special';
+// Same comparison the worker uses to say what a re-run added.
+const norm = (t: string) => t.toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
 type V = Record<string, unknown>;
 
 // What the AI found, turned into values for the tender details form (which the person saves).
@@ -87,14 +90,21 @@ export default function ReviewPanel({
   const confirmed = reqs.filter((r) => r.confirmed && r.status !== 'not_applicable');
   const dismissed = reqs.filter((r) => r.confirmed && r.status === 'not_applicable');
   const checklistDocs = confirmed.filter(isDoc);
-  const [tab, setTab] = useState<'review' | 'checklist'>(toReview.length || !confirmed.length ? 'review' : 'checklist');
+  const [tab, setTab] = useState<'review' | 'checklist' | 'ask'>(toReview.length || !confirmed.length ? 'review' : 'checklist');
   const [editing, setEditing] = useState<Requirement | 'new' | null>(null);
   const [busyIds, setBusyIds] = useState<Set<string>>(new Set());
 
-  // Once everything is reviewed, show the checklist.
+  // Once everything is reviewed, show the checklist (unless the person is asking questions).
   useEffect(() => {
-    if (!toReview.length && confirmed.length) setTab('checklist');
+    if (!toReview.length && confirmed.length) setTab((t) => (t === 'ask' ? t : 'checklist'));
   }, [toReview.length, confirmed.length]);
+
+  // What the latest re-run changed. Hidden once the person dismisses it (until the next run).
+  const changes = ai.ai_status === 'done' ? ai.ai_fields?.changes ?? null : null;
+  const [hiddenChanges, setHiddenChanges] = useState<string | null>(null);
+  const showChanges = changes && hiddenChanges !== ai.ai_extracted_at && (changes.added.length > 0 || changes.removed.length > 0);
+  const addedSet = useMemo(() => new Set((changes?.added ?? []).map(norm)), [changes]);
+  const isNew = (r: Requirement) => !r.confirmed && addedSet.has(norm(r.description));
 
   const done = files.filter((f) => f.status === 'done');
   const filesPending = files.some((f) => f.status === 'queued' || f.status === 'extracting');
@@ -144,30 +154,55 @@ export default function ReviewPanel({
         <button role="tab" data-tone="ready" aria-selected={tab === 'checklist'} onClick={() => setTab('checklist')}>
           Checklist {checklistDocs.length > 0 && <span className="n">{checklistDocs.filter((r) => r.status === 'done').length}/{checklistDocs.length}</span>}
         </button>
+        <button role="tab" data-tone="cobalt" aria-selected={tab === 'ask'} onClick={() => setTab('ask')}>
+          Ask
+        </button>
       </div>
 
       <div className="panel-body ai-body">
         {ai.ai_status === 'none' && !reqs.length && (
           <p className="muted" style={{ margin: 0 }}>
-            {filesPending ? 'AI extraction starts automatically once every PDF has been read.' : done.length ? 'Not run yet.' : 'Add the tender PDFs first.'}
+            {filesPending ? 'AI extraction starts automatically once every document has been read.' : done.length ? 'Not run yet.' : 'Add the tender documents first.'}
           </p>
         )}
         {busy && (
           <p className="muted" style={{ margin: 0 }}>
-            {filesPending ? 'Waiting for the PDFs to finish reading. ' : ''}
+            {filesPending ? 'Waiting for the documents to finish reading. ' : ''}
             The AI reads the whole pack and lists the deadlines, documents and disqualification rules, usually in under a minute.
             {ai.ai_status === 'queued' && <> If it stays queued, check the worker is running and printed <span className="mono">AI extraction on</span>.</>}
           </p>
         )}
         {ai.ai_status === 'failed' && <AiFailure kind={ai.ai_error_kind} detail={ai.ai_error} />}
-        {stale && (
+        {showChanges && tab !== 'ask' && (
+          <div className="callout changes" role="status">
+            <div className="changes-head">
+              <b>What changed since the run on {fmtDateTime(changes!.previous_run_at)}</b>
+              <button className="btn ghost" onClick={() => setHiddenChanges(ai.ai_extracted_at)}>Dismiss</button>
+            </div>
+            {changes!.added.length > 0 && (
+              <div>
+                <span className="small"><b style={{ display: 'inline' }}>{changes!.added.length} new</b> item{changes!.added.length > 1 ? 's' : ''}, tagged <span className="req-tag new">New</span> under To review.</span>
+              </div>
+            )}
+            {changes!.removed.length > 0 && (
+              <details className="history">
+                <summary className="small"><ChevronRight className="ico" aria-hidden="true" />{changes!.removed.length} item{changes!.removed.length > 1 ? 's' : ''} from the last run no longer listed</summary>
+                <ul className="small">{changes!.removed.map((d, i) => <li key={i}>{d}</li>)}</ul>
+                <p className="small muted" style={{ margin: '4px 0 0' }}>Only items you hadn't reviewed are replaced. Add any back with Add item if the tender still needs them.</p>
+              </details>
+            )}
+          </div>
+        )}
+        {stale && tab !== 'ask' && (
           <div className="callout">
             <b>The files changed since the last AI run</b>
-            Re-run AI to include PDFs added or re-read since {fmtDateTime(ai.ai_extracted_at!)}. Your confirmed items are kept.
+            Re-run AI to include documents added or re-read since {fmtDateTime(ai.ai_extracted_at!)}. Your confirmed items are kept.
           </div>
         )}
 
-        {tab === 'review' ? (
+        {tab === 'ask' ? (
+          <AskPanel tenderId={tender.id} canAsk={done.length > 0} where={where} onOpenSource={onOpenSource} />
+        ) : tab === 'review' ? (
           <>
             {ai.ai_status === 'done' && ai.ai_fields && (
               <>
@@ -221,7 +256,7 @@ export default function ReviewPanel({
                 <ul className="req-list" data-tone="review">
                   {toReview.map((r) => (
                     <li key={r.id} className={priority(r) === 0 ? 'attention' : ''}>
-                      <ReqText r={r} />
+                      <ReqText r={r} isNew={isNew(r)} />
                       <div className="req-meta">
                         {r.source_page && (
                           <button className="btn ghost" onClick={() => onOpenSource(r.source_file_id, r.source_page, r.quote)} title={r.quote ?? ''}>
@@ -286,13 +321,13 @@ export default function ReviewPanel({
 
 // Plain-language messages for a failed AI run. The technical error stays out of sight under "Technical details".
 const AI_FAILURE: Record<string, { tone: 'warn' | 'crit'; title: string; body: string }> = {
-  busy: { tone: 'warn', title: 'The AI service is busy right now', body: 'Your PDFs are read and saved. Click Re-run AI in a few minutes.' },
+  busy: { tone: 'warn', title: 'The AI service is busy right now', body: 'Your documents are read and saved. Click Re-run AI in a few minutes.' },
   account: {
     tone: 'crit',
     title: 'AI extraction is paused for your account',
-    body: "Your PDFs are read and saved, and you can add checklist items by hand with Add item. We've been notified.",
+    body: "Your documents are read and saved, and you can add checklist items by hand with Add item. We've been notified.",
   },
-  input: { tone: 'warn', title: 'There are no readable PDFs yet', body: 'Upload the tender PDFs, or retry any that failed, then click Re-run AI.' },
+  input: { tone: 'warn', title: 'There are no readable documents yet', body: 'Upload the tender documents, or retry any that failed, then click Re-run AI.' },
   other: { tone: 'crit', title: 'Something went wrong reading this tender with AI', body: 'Click Re-run AI to try again.' },
 };
 
@@ -312,11 +347,12 @@ function AiFailure({ kind, detail }: { kind: TenderAi['ai_error_kind']; detail: 
   );
 }
 
-function ReqText({ r }: { r: Requirement }) {
+function ReqText({ r, isNew }: { r: Requirement; isNew?: boolean }) {
   return (
     <div className="what">
       <span className="req-name">
         {r.description}
+        {isNew && <span className="req-tag new">New</span>}
         {r.mandatory && isDoc(r) && <span className="req-tag">Mandatory</span>}
         {r.doc_type && isDoc(r) && <span className="req-tag vault">Vault: {docTypeInfo(r.doc_type).name}</span>}
         {!isDoc(r) && <span className="req-tag plain">{KIND_LABEL[r.kind]}</span>}

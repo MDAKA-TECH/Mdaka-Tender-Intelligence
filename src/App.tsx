@@ -10,6 +10,7 @@ import Vault from './pages/Vault';
 import CompanyPage from './pages/Company';
 import Tenders from './pages/Tenders';
 import TenderDetail from './pages/TenderDetail';
+import Legal from './pages/Legal';
 
 type Route = { page: 'tenders' } | { page: 'tender'; id: string } | { page: 'vault' } | { page: 'company' };
 type Page = Route['page'];
@@ -32,8 +33,22 @@ function parseHash(hash: string): Route {
 }
 const toHash = (r: Route) => (r.page === 'tender' ? `#/tenders/${r.id}` : `#/${r.page}`);
 
+// #/privacy and #/terms open without signing in.
+const legalPage = (h: string): 'privacy' | 'terms' | null => (h === '#/privacy' ? 'privacy' : h === '#/terms' ? 'terms' : null);
+function useLegalPage() {
+  const [p, setP] = useState(() => legalPage(window.location.hash));
+  useEffect(() => {
+    const on = () => setP(legalPage(window.location.hash));
+    window.addEventListener('hashchange', on);
+    return () => window.removeEventListener('hashchange', on);
+  }, []);
+  return p;
+}
+
 export default function App() {
   const { ready, session, user, company, loadError, signOut } = useAuth();
+  const legal = useLegalPage();
+  if (legal) return <Legal page={legal} />;
 
   if (!supabaseConfigured)
     return (
@@ -126,6 +141,7 @@ function Shell({ user, company }: { user: AppUser; company: Company }) {
               <LogOut className="ico" aria-hidden="true" />
               Sign out
             </button>
+            <div className="rail-legal small"><a href="#/privacy">Privacy</a> · <a href="#/terms">Terms</a></div>
           </div>
         </aside>
         <main className="main">

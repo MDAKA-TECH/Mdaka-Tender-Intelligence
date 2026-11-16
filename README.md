@@ -75,13 +75,23 @@ Same setup as Student360.
 
 1. Create a new Supabase project (separate from Student360).
 2. Supabase → SQL Editor → run each file in `supabase/migrations/` in order
-   (`0001_foundations.sql`, `0002_ingestion.sql`, `0003_ai_extraction.sql`, `0004_reminders.sql`, `0005_ai_errors.sql`, then `0006_storage_cleanup.sql`).
+   (`0001_foundations.sql`, `0002_ingestion.sql`, `0003_ai_extraction.sql`, `0004_reminders.sql`, `0005_ai_errors.sql`, `0006_storage_cleanup.sql`, then `0007_word_questions_storage.sql`).
 3. Supabase → Authentication → URL Configuration: set Site URL to `http://localhost:5173`
    (add your Vercel URL later). Email confirmation is on by default; keep it on.
 4. Copy `.env.example` to `.env.local` and fill in the project URL and anon key
    (Project Settings → API).
 5. `npm install` then `npm run dev`, open http://localhost:5173, create an account, confirm the email,
    and set up the company.
+
+### Improvements (November 2026)
+- [x] Word (.docx/.doc) tender documents and SBD forms: converted to PDF by the worker
+- [x] Ask tab: questions answered from the tender's documents only, with verified page references
+- [x] Source viewer shows the real PDF page with the quote highlighted (pdf.js, loaded on demand)
+- [x] "What changed" after a re-run, with New tags on items the earlier run didn't have
+- [x] Remove stored files of a submitted or closed tender; text, checklist and AI results stay
+- [x] Get-started guide, a sample tender to try instantly, better empty states
+- [x] Privacy notice and terms of use at `#/privacy` and `#/terms` (drafts: have them reviewed)
+- [x] Quieter worker log (HTTP request lines hidden)
 
 ## Extraction worker
 
@@ -109,7 +119,12 @@ https://github.com/UB-Mannheim/tesseract/wiki (the default install path is detec
 `evaluate.py` skips scanned tenders (and reports the gate as INCOMPLETE) until it's installed.
 Without it, text PDFs still work; scanned pages are skipped and the file shows a warning.
 
-**Hosting later:** `worker/Dockerfile` includes Tesseract. Deploy it as a background worker on
+**Word documents:** `.docx` and `.doc` tender files are converted to PDF with LibreOffice
+(`soffice`), so they get real page numbers and the source viewer can show them. The Docker image
+includes it. Running the worker on Windows without LibreOffice installed, Word files fail with a
+clear message and PDFs still work. The start-up line says `Word files supported` when it's found.
+
+**Hosting:** `worker/Dockerfile` includes Tesseract and LibreOffice. Deploy it as a background worker on
 Render or Fly.io with `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` as secrets.
 
 ## AI extraction and the week 3 gate

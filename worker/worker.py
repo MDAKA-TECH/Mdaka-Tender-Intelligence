@@ -25,7 +25,9 @@ from dotenv import load_dotenv
 from supabase import Client, create_client
 
 from ai_job import process_ai
+from convert import is_word, soffice, word_to_pdf
 from extract import extract_pdf, tesseract_available
+from qa_job import process_question
 
 BUCKET = "tenders"
 POLL_SECONDS = float(os.getenv("POLL_SECONDS", "5"))
@@ -60,6 +62,25 @@ def claim_ai(sb: Client) -> dict | None:
     return rows[0] if rows else None
 
 
+_questions_ready = True
+
+
+def claim_question(sb: Client) -> dict | None:
+    global _questions_ready
+    if not _questions_ready:
+        return None
+    try:
+        rows = sb.rpc("claim_tender_question").execute().data or []
+    except Exception as e:  # noqa: BLE001
+        if "claim_tender_question" in str(e) or "PGRST202" in str(e):
+            # The database hasn't had migration 0007 yet: keep everything else working.
+            _questions_ready = False
+            log.warning("Questions are off until migration 0007_word_questions_storage.sql is run in Supabase.")
+            return None
+        raise
+    return rows[0] if rows else None
+
+
 def ai_enabled() -> bool:
     provider = (os.getenv("LLM_PROVIDER") or "").strip().lower()
     key = {"anthropic": "ANTHROPIC_API_KEY", "openai": "OPENAI_API_KEY", "gemini": "GEMINI_API_KEY"}.get(provider)
@@ -72,6 +93,12 @@ def process(sb: Client, job: dict) -> None:
     started = time.monotonic()
     try:
         data = sb.storage.from_(BUCKET).download(job["file_path"])
+        preview_path = None
+        if is_word(name):
+            # Word → PDF: real page numbers, the same reading pipeline, and a PDF to show in the app.
+            data = word_to_pdf(data, name)
+            preview_path = job["file_path"] + ".pdf"
+            sb.storage.from_(BUCKET).upload(preview_path, data, {"content-type": "application/pdf", "upsert": "true"})
         res = extract_pdf(data)
         pages = res.as_json()
         total = sum(len(p["text"]) for p in pages)
@@ -88,6 +115,7 @@ def process(sb: Client, job: dict) -> None:
             "extracted_text": pages,
             "ocr_used": bool(res.ocr_pages),
             "ocr_pages": res.ocr_pages,
+            "preview_path": preview_path,
             "extracted_at": datetime.now(timezone.utc).isoformat(),
             # Keep warnings visible in the app without marking the file failed.
             "error": "; ".join(res.warnings) or None,
@@ -105,24 +133,34 @@ def main() -> None:
     ap.add_argument("--once", action="store_true", help="process the queue, then exit")
     args = ap.parse_args()
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
+    # The HTTP client logs every 5-second queue check; keep the log for real work and problems.
+    for noisy in ("httpx", "httpcore", "hpack"):
+        logging.getLogger(noisy).setLevel(logging.WARNING)
     signal.signal(signal.SIGINT, _handle_stop)
     signal.signal(signal.SIGTERM, _handle_stop)
 
     sb = connect()
     use_ai = ai_enabled()
-    log.info("Worker started. OCR %s. AI extraction %s.",
+    log.info("Worker started. OCR %s. Word files %s. AI extraction %s.",
              "available" if tesseract_available() else "NOT installed: scanned pages will be skipped",
+             "supported" if soffice() else "not supported (LibreOffice not installed)",
              f"on ({os.getenv('LLM_PROVIDER')})" if use_ai else "OFF: set LLM_PROVIDER and its API key in worker/.env")
     while not _stop:
         try:
-            job = claim(sb)  # reading PDFs comes first: AI needs the text
-            ai_job = None if job or not use_ai else claim_ai(sb)
+            # Reading files comes first (everything else needs the text), then questions (someone is
+            # waiting for a short answer), then full AI extraction runs.
+            job = claim(sb)
+            q_job = None if job or not use_ai else claim_question(sb)
+            ai_job = None if job or q_job or not use_ai else claim_ai(sb)
         except Exception:  # noqa: BLE001 — network blips shouldn't kill the worker
             log.exception("Could not reach Supabase; retrying in %ss", POLL_SECONDS * 3)
             time.sleep(POLL_SECONDS * 3)
             continue
         if job:
             process(sb, job)
+            continue
+        if q_job:
+            process_question(sb, q_job)
             continue
         if ai_job:
             process_ai(sb, ai_job)

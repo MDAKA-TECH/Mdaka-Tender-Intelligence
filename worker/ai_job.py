@@ -103,6 +103,21 @@ def drop_already_decided(rows: list[dict], decided: list[dict]) -> list[dict]:
     return out
 
 
+def run_changes(new_rows: list[dict], existing: list[dict], previous_run_at: str | None) -> dict | None:
+    """What a re-run found compared with what was there before, by description.
+    added: items the earlier run didn't have; removed: earlier unconfirmed AI items this run no longer lists.
+    None on the first run, so there's nothing to compare with."""
+    if not previous_run_at:
+        return None
+    before = {_norm(r.get("description", "")) for r in existing}
+    now = {_norm(r["description"]) for r in new_rows}
+    added = [r["description"] for r in new_rows if _norm(r["description"]) not in before]
+    removed = [r["description"] for r in existing
+               if not r.get("confirmed") and r.get("added_by") in ("ai", "keyword_check")
+               and _norm(r.get("description", "")) not in now]
+    return {"previous_run_at": previous_run_at, "added": added[:50], "removed": removed[:50]}
+
+
 def ai_fields_payload(checked: dict, summary: dict, res: llm.LLMResult, files: list[dict], file_ids: list[str]) -> dict:
     return {
         "fields": {k: checked[k] for k in FIELD_KEYS},
@@ -122,8 +137,11 @@ def process_ai(sb, job: dict) -> None:
             raise NoReadableFiles("No readable PDFs for this tender. Upload or retry the files first.")
         checked, summary, res = extract_fields(files)
         rows = requirement_rows(checked, tid, company, file_ids)
-        decided = (sb.table("requirements").select("kind, description, doc_type")
-                   .eq("tender_id", tid).eq("confirmed", True).execute().data) or []
+        existing = (sb.table("requirements").select("kind, description, doc_type, confirmed, added_by")
+                    .eq("tender_id", tid).execute().data) or []
+        decided = [r for r in existing if r.get("confirmed")]
+        previous = (sb.table("tenders").select("ai_extracted_at").eq("id", tid).execute().data or [{}])[0].get("ai_extracted_at")
+        changes = run_changes(rows, existing, previous)
         skipped = len(rows)
         rows = drop_already_decided(rows, decided)
         skipped -= len(rows)
@@ -136,7 +154,7 @@ def process_ai(sb, job: dict) -> None:
         sb.table("tenders").update({
             "ai_status": "done", "ai_error": None, "ai_model": f"{res.provider}/{res.model}",
             "ai_extracted_at": datetime.now(timezone.utc).isoformat(), "ai_file_ids": file_ids,
-            "ai_fields": ai_fields_payload(checked, summary, res, files, file_ids),
+            "ai_fields": {**ai_fields_payload(checked, summary, res, files, file_ids), **({"changes": changes} if changes else {})},
         }).eq("id", tid).execute()
         log.info("AI done for %s: %s new requirements (%s already confirmed), %s low confidence, %.1fs",
                  tid, len(rows), skipped, summary["low_confidence"], res.seconds)

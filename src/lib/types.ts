@@ -131,6 +131,8 @@ export interface TenderFile {
   ocr_pages: number[];
   extracted_at: string | null;
   created_at: string;
+  preview_path: string | null;     // PDF the worker made from a Word file
+  files_removed_at: string | null; // stored file deleted to save space; text kept
 }
 
 export interface PageText {
@@ -162,6 +164,13 @@ export interface AiFields {
   model: string;
   tokens: { input: number | null; output: number | null };
   seconds: number;
+  changes?: AiChanges | null; // set on a re-run
+}
+
+export interface AiChanges {
+  previous_run_at: string;
+  added: string[];
+  removed: string[];
 }
 
 export interface TenderAi {
@@ -194,4 +203,25 @@ export interface Requirement {
   confirmed: boolean;
   status: 'todo' | 'done' | 'not_applicable';
   sort_order: number;
+}
+
+// ---------------------------------------------------------------- questions about a tender
+export interface Citation {
+  file_id: string | null;
+  page: number | null;
+  quote: string;
+  verified: boolean;
+}
+
+export interface TenderQuestion {
+  id: string;
+  question: string;
+  status: 'queued' | 'answering' | 'done' | 'failed';
+  answer: string | null;
+  found: boolean | null;
+  citations: Citation[];
+  error: string | null;
+  error_kind: 'busy' | 'account' | 'input' | 'other' | null;
+  created_at: string;
+  answered_at: string | null;
 }

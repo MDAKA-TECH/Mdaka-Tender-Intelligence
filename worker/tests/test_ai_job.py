@@ -209,6 +209,63 @@ def test_classify_provider_errors():
     assert c(503, "") == "busy" and c(500, "") == "busy"
 
 
+def test_rerun_records_changes():
+    sb = FakeSB()
+    key = setup_ter(sb)
+    sb.db["tenders"][0]["ai_extracted_at"] = "2026-11-01T08:00:00+00:00"
+    sb.db["requirements"].append({"tender_id": "T1", "description": "Something the old run invented", "added_by": "ai", "confirmed": False})
+    use_fixture(perfect_answer(key))
+    ai_job.process_ai(sb, {"id": "T1", "company_id": "C1", "ai_attempts": 1})
+    ch = sb.db["tenders"][0]["ai_fields"]["changes"]
+    assert ch["previous_run_at"] == "2026-11-01T08:00:00+00:00"
+    assert "Something the old run invented" in ch["removed"] and "old AI row" in ch["removed"]
+    assert ch["added"] and "confirmed AI row" not in ch["added"]
+
+
+def test_first_run_has_no_changes():
+    sb = FakeSB()
+    key = setup_ter(sb)
+    use_fixture(perfect_answer(key))
+    ai_job.process_ai(sb, {"id": "T1", "company_id": "C1", "ai_attempts": 1})
+    assert "changes" not in sb.db["tenders"][0]["ai_fields"]
+
+
+def test_question_answer_checks_quotes():
+    import llm
+    import qa_job
+    sb = FakeSB()
+    setup_ter(sb)
+    sb.db["tender_questions"] = [{"id": "Q1", "tender_id": "T1", "status": "answering"}]
+    files, _ = ai_job.load_files(sb, "T1")
+    real = next(p for p in files[0]["pages"] if "HOGAN EXECUTIVE PSYCHOMETRIC" in p["text"])
+    line = "VERIFICATION AND HOGAN EXECUTIVE PSYCHOMETRIC ASSESSMENTS FOR THE TRANSPORT ECONOMIC"
+    reply = {"found": True, "answer": "Background checks and Hogan assessments.", "citations": [
+        {"file": 1, "page": 99, "quote": line},                       # real quote, wrong page -> moved
+        {"file": 1, "page": 1, "quote": "submit a CIDB grade 9 certificate"},   # invented -> unverified
+    ]}
+    real_call = llm.call
+    llm.call = lambda *a, **k: llm.LLMResult(data=reply, provider="fixture", model="t")
+    try:
+        qa_job.process_question(sb, {"id": "Q1", "tender_id": "T1", "question": "When does it close?", "attempts": 1})
+    finally:
+        llm.call = real_call
+    q = sb.db["tender_questions"][0]
+    assert q["status"] == "done" and q["found"] is True
+    c1, c2 = q["citations"]
+    assert c1["verified"] and c1["page"] == real["page"] and c1["file_id"] == "F1"
+    assert c2["verified"] is False
+
+
+def test_question_without_files_fails_cleanly():
+    import qa_job
+    sb = FakeSB()
+    sb.db["tender_files"] = []
+    sb.db["tender_questions"] = [{"id": "Q2", "tender_id": "T9", "status": "answering"}]
+    qa_job.process_question(sb, {"id": "Q2", "tender_id": "T9", "question": "Anything?", "attempts": 1})
+    q = sb.db["tender_questions"][0]
+    assert q["status"] == "failed" and q["error_kind"] == "input"
+
+
 if __name__ == "__main__":
     import logging
     logging.disable(logging.CRITICAL)
