@@ -49,6 +49,33 @@ Every `git push` to the main branch redeploys automatically.
    ```
 3. Sign up / sign in on the live address once to check the confirmation email link lands on the live site.
 
+## 3B. Google sign-in (about 15 minutes)
+
+The app shows **Continue with Google** on the login screen. Until these steps are done, clicking it
+says "Google sign-in is not switched on yet".
+
+1. **Google Cloud Console** (https://console.cloud.google.com), signed in with the company Google account:
+   1. Create a project, e.g. `Tender Intelligence`.
+   2. **APIs & Services → OAuth consent screen**: User type **External**. App name `Tender Intelligence`,
+      support email `info@mdakatech.com`, app logo `public/icon-512.png`, app domain the Vercel address,
+      privacy policy `<live address>/#/privacy`, terms `<live address>/#/terms`. Scopes: only `email`,
+      `profile`, `openid`. Then **Publish app** (no Google review is needed for these basic scopes).
+   3. **APIs & Services → Credentials → Create credentials → OAuth client ID**: type **Web application**.
+      - Authorised JavaScript origins: your live address, e.g. `https://mdaka-tender-intelligence.vercel.app`
+      - Authorised redirect URIs: `https://<your-project-ref>.supabase.co/auth/v1/callback`
+        (copy it exactly from the Supabase Google provider page in step 2)
+   4. Copy the **Client ID** and **Client secret**.
+2. **Supabase → Authentication → Sign In / Providers → Google**: switch it on, paste the Client ID and
+   Client secret, save.
+3. **Supabase → Authentication → URL Configuration**: the live address must be in Redirect URLs (it is,
+   from section 3).
+4. **Google "G" logo (optional):** Google's branding rules want its official "G" on the button. Download
+   it from https://developers.google.com/identity/branding-guidelines and save the SVG as
+   `public/google-g.svg`. The button shows it automatically when the file is there.
+
+Someone who signed up with email and password can also use Google with the same email: Supabase links
+the two to one account. A first-time Google sign-in goes to "Set up your company", with their name filled in.
+
 ## 4A. Worker on Oracle Cloud, free (about 45 minutes the first time)
 
 Files: `worker/deploy/oracle-cloud-init.yaml`, `worker/deploy/setup-worker.sh`, `worker/deploy/update-worker.sh`.

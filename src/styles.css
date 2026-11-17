@@ -340,6 +340,10 @@ tr.clickable:hover td { background: var(--sunken); }
 .login-mark { display: block; margin-bottom: 12px; border-radius: 11px; }
 .login-brand { font-size: 26px; font-weight: 760; font-stretch: 86%; letter-spacing: -0.015em; }
 .login-brand span { color: var(--cobalt); }
+.google-btn { justify-content: center; gap: 10px; min-height: 44px; background: var(--sheet); border-color: var(--line-strong); font-weight: 600; }
+.google-btn:hover:not(:disabled) { background: var(--sunken); }
+.or-line { display: flex; align-items: center; gap: 12px; color: var(--muted); font-size: 13px; }
+.or-line::before, .or-line::after { content: ''; flex: 1; height: 1px; background: var(--line); }
 .login-toggle { background: none; border: 0; color: var(--cobalt-ink); cursor: pointer; padding: 0; font-weight: 600; }
 
 /* ---------------------------------------------------------------- vault + file lists */

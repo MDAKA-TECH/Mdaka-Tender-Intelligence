@@ -45,7 +45,7 @@ function Privacy() {
 
       <h2>What we collect</h2>
       <ul>
-        <li><b>Your account:</b> your name, email address and password (stored only as a secure hash by our login provider).</li>
+        <li><b>Your account:</b> your name, email address and password (stored only as a secure hash by our login provider). If you sign in with Google, we receive your name, email address and profile picture from Google, and no password.</li>
         <li><b>Your company:</b> its name, registration and contact details you enter, and the people you invite.</li>
         <li><b>Documents you upload:</b> tender documents, and compliance documents in the vault (for example tax, CSD, B-BBEE, CIPC, bank and ID documents). These can contain personal information about your directors and staff.</li>
         <li><b>What the app produces from them:</b> extracted text, checklists, AI results, questions you ask and their answers.</li>

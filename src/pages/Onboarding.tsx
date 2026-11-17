@@ -5,7 +5,8 @@ import { friendlyError, supabase } from '../lib/supabase';
 export default function Onboarding() {
   const { reload, signOut, session } = useAuth();
   const [name, setName] = useState('');
-  const [person, setPerson] = useState('');
+  // Google sign-ins come with the person's name; email sign-ups type it here.
+  const [person, setPerson] = useState(() => String(session?.user.user_metadata?.full_name ?? session?.user.user_metadata?.name ?? ''));
   const [csd, setCsd] = useState('');
   const [level, setLevel] = useState('');
   const [error, setError] = useState<string | null>(null);

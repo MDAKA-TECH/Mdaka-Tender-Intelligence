@@ -1,18 +1,45 @@
 import { useState, type FormEvent } from 'react';
 import { friendlyError, supabase } from '../lib/supabase';
+import { usePageTitle } from '../components/ui';
 
 type Mode = 'signin' | 'signup';
 
-import { usePageTitle } from '../components/ui';
+// If Google sign-in was cancelled or refused, Supabase sends the person back with the reason in the URL.
+function oauthError(): string | null {
+  const params = new URLSearchParams(window.location.hash.replace(/^#/, '') || window.location.search);
+  const d = params.get('error_description') || params.get('error');
+  if (!d) return null;
+  history.replaceState(null, '', window.location.pathname);
+  if (/provider is not enabled|Unsupported provider/i.test(d)) return 'Google sign-in is not switched on yet. Use your email and password for now.';
+  if (/access_denied|cancel/i.test(d)) return 'Google sign-in was cancelled.';
+  return `Google sign-in didn't work: ${d.replace(/\+/g, ' ')}`;
+}
+// Read once when the app loads, before anything else changes the URL.
+const initialOauthError = oauthError();
 
 export default function Login() {
   usePageTitle(null);
   const [mode, setMode] = useState<Mode>('signin');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(initialOauthError);
   const [notice, setNotice] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [googleBusy, setGoogleBusy] = useState(false);
+
+  // Leaves the app for Google's sign-in page; Supabase brings the person back here signed in.
+  const google = async () => {
+    setGoogleBusy(true);
+    setError(null);
+    const { error: e } = await supabase.auth.signInWithOAuth({
+      provider: 'google',
+      options: { redirectTo: window.location.origin, queryParams: { prompt: 'select_account' } },
+    });
+    if (e) {
+      setGoogleBusy(false);
+      setError(/provider is not enabled|Unsupported provider/i.test(e.message) ? 'Google sign-in is not switched on yet. Use your email and password for now.' : friendlyError(e));
+    }
+  };
 
   const submit = async (ev: FormEvent) => {
     ev.preventDefault();
@@ -57,6 +84,11 @@ export default function Login() {
               {signup ? 'Create an account for your company.' : 'Sign in to prepare your bids.'}
             </p>
           </div>
+          <button type="button" className="btn google-btn" onClick={google} disabled={googleBusy || busy}>
+            <img src="/google-g.svg" alt="" width="18" height="18" onError={(e) => { e.currentTarget.style.display = 'none'; }} />
+            {googleBusy ? 'Opening Google…' : 'Continue with Google'}
+          </button>
+          <div className="or-line" aria-hidden="true"><span>or with email</span></div>
           <form onSubmit={submit} style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
             <label className="field">
               <span>Email</span>
