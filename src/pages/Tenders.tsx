@@ -5,7 +5,7 @@ import { ACTIVE_STATUSES, STATUS_TONE, TENDER_STATUS_LABEL, docTypeInfo, type To
 import { EXPIRING_DAYS, closingIn, daysUntil, fmtDateTime, fmtSize, fromLocalInput } from '../lib/dates';
 import type { VaultDoc } from '../lib/vault';
 import { TENDER_FILE_ACCEPT, checkTenderFile, uploadTenderFiles } from '../lib/tenderFiles';
-import { Modal, useToast } from '../components/ui';
+import { Modal, SkeletonRows, useToast } from '../components/ui';
 
 interface Row extends Tender {
   tender_files: { status: string }[];
@@ -116,7 +116,7 @@ export default function Tenders({ company, onOpen, onOpenVault }: { company: Com
 
       <section className="panel">
         {!rows ? (
-          <p className="panel-body muted">Loading…</p>
+          <SkeletonRows rows={5} label="Loading tenders" />
         ) : rows.length === 0 ? (
           <div className="panel-body empty-state">
             <b>No tenders yet</b>

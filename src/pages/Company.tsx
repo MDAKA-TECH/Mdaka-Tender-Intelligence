@@ -1,4 +1,5 @@
-import { useState, type FormEvent } from 'react';
+import { useCallback, useEffect, useState, type FormEvent } from 'react';
+import { Plus, Trash2 } from 'lucide-react';
 import { useAuth } from '../lib/auth';
 import { friendlyError, supabase } from '../lib/supabase';
 import type { AppUser, Company } from '../lib/types';
@@ -75,24 +76,50 @@ export default function CompanyPage({ company, user }: { company: Company; user:
   );
 }
 
-function Notifications({ user, onChanged }: { user: AppUser; onChanged: () => Promise<void> }) {
+const MAX_RECIPIENTS = 3;
+const EMAIL_RE = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
+
+interface Recipient { id: string; email: string; name: string | null }
+
+// Who gets the reminder emails: up to 3 addresses per company, each editable to fix a typo.
+function Notifications({ user }: { user: AppUser; onChanged: () => Promise<void> }) {
   const toast = useToast();
-  const [on, setOn] = useState(user.email_reminders);
-  const [saving, setSaving] = useState(false);
+  const [rows, setRows] = useState<Recipient[] | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [editing, setEditing] = useState<string | 'new' | null>(null);
   const [testing, setTesting] = useState(false);
   const [result, setResult] = useState<{ ok: boolean; text: string } | null>(null);
 
-  const toggle = async (next: boolean) => {
-    setOn(next);
-    setSaving(true);
-    const { error } = await supabase.from('users').update({ email_reminders: next }).eq('id', user.id);
-    setSaving(false);
-    if (error) {
-      setOn(!next);
-      return toast(friendlyError(error));
-    }
-    toast(next ? 'Email reminders on.' : 'Email reminders off.');
-    await onChanged();
+  const load = useCallback(async () => {
+    const { data, error } = await supabase.from('reminder_recipients').select('id, email, name').order('created_at');
+    if (error) return setLoadError(friendlyError(error));
+    setLoadError(null);
+    setRows((data as Recipient[]) ?? []);
+  }, []);
+  useEffect(() => { load(); }, [load]);
+
+  const save = async (r: { id?: string; email: string; name: string }): Promise<string | null> => {
+    const email = r.email.trim().toLowerCase();
+    if (!EMAIL_RE.test(email)) return 'Enter a full email address, like tenders@yourcompany.co.za.';
+    if (rows?.some((x) => x.id !== r.id && x.email === email)) return 'That address is already on the list.';
+    const patch = { email, name: r.name.trim() || null };
+    const { error } = r.id
+      ? await supabase.from('reminder_recipients').update(patch).eq('id', r.id)
+      : await supabase.from('reminder_recipients').insert(patch);
+    if (error) return friendlyError(error);
+    setEditing(null);
+    setResult(null);
+    toast(r.id ? 'Email address updated.' : 'Email address added.');
+    load();
+    return null;
+  };
+
+  const remove = async (r: Recipient) => {
+    const { error } = await supabase.from('reminder_recipients').delete().eq('id', r.id);
+    if (error) return toast(friendlyError(error));
+    toast(`${r.email} removed.`);
+    setResult(null);
+    load();
   };
 
   const sendTest = async () => {
@@ -112,28 +139,104 @@ function Notifications({ user, onChanged }: { user: AppUser; onChanged: () => Pr
       if (/Failed to send a request|FunctionsFetchError/i.test(text)) text = 'The send-reminders function is not deployed yet (see the README, week 5).';
       return setResult({ ok: false, text });
     }
-    setResult({ ok: true, text: `Test email sent to ${data.sent_to}. Check your inbox (and spam folder).` });
+    setResult({ ok: true, text: `Test email sent to ${data.sent_to}. Check each inbox (and the spam folder).` });
   };
 
+  const count = rows?.length ?? 0;
   return (
     <section className="panel" aria-labelledby="notif-head">
-      <div className="panel-head"><h2 id="notif-head">Email reminders</h2></div>
-      <div className="panel-body" style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-        <label className="check-inline">
-          <input type="checkbox" checked={on} disabled={saving} onChange={(e) => toggle(e.target.checked)} />
-          Email me deadline reminders at <b>{user.email}</b>
-        </label>
+      <div className="panel-head">
+        <h2 id="notif-head">Email reminders</h2>
+        {rows && <span className="small muted">{count} of {MAX_RECIPIENTS} addresses</span>}
+      </div>
+      <div className="panel-body" style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+        <p className="small muted" style={{ margin: 0 }}>
+          Reminders go to every address below, up to {MAX_RECIPIENTS}. Use anyone who needs them: a colleague, your bookkeeper or a shared tenders inbox. They don't need an account.
+        </p>
+        {loadError && (
+          <div className="callout crit">
+            <b>Couldn't load the reminder addresses</b>
+            {loadError} If it mentions a table that does not exist, run the latest file in supabase/migrations in the Supabase SQL editor.
+          </div>
+        )}
+        {rows && (
+          <ul className="recipients">
+            {rows.map((r) =>
+              editing === r.id ? (
+                <li key={r.id}><RecipientForm initial={r} onSave={(v) => save({ ...v, id: r.id })} onCancel={() => setEditing(null)} /></li>
+              ) : (
+                <li key={r.id} className="recipient">
+                  <div className="who">
+                    <b>{r.name || r.email}</b>
+                    {r.name && <span className="small muted">{r.email}</span>}
+                    {r.email === user.email.toLowerCase() && <span className="small muted">Your sign-in email</span>}
+                  </div>
+                  <div className="toolbar">
+                    <button className="btn" onClick={() => setEditing(r.id)} disabled={editing !== null}>Edit</button>
+                    <button className="btn ghost icon" onClick={() => remove(r)} disabled={editing !== null} aria-label={`Remove ${r.email}`} title="Remove"><Trash2 className="ico" aria-hidden="true" /></button>
+                  </div>
+                </li>
+              ),
+            )}
+            {editing === 'new' && <li><RecipientForm initial={null} onSave={(v) => save(v)} onCancel={() => setEditing(null)} /></li>}
+          </ul>
+        )}
+        {rows && count === 0 && editing !== 'new' && (
+          <div className="callout warn"><b>Reminders are off</b>No addresses on the list, so no reminder emails are sent. Add one to turn them on.</div>
+        )}
+        {rows && (
+          <div className="toolbar">
+            {count < MAX_RECIPIENTS && editing === null && (
+              <button className="btn" onClick={() => setEditing('new')}><Plus className="ico" aria-hidden="true" />Add email address</button>
+            )}
+            <button className="btn" onClick={sendTest} disabled={testing || count === 0 || editing !== null}>{testing ? 'Sending…' : count > 1 ? `Send test email to all ${count}` : 'Send test email'}</button>
+          </div>
+        )}
+        {result && <div className={`callout ${result.ok ? 'ok' : 'crit'}`}>{result.text}</div>}
         <ul className="plain-list small muted">
           <li>Closing dates: 7 days before, 2 days before, and on the morning of the closing day</li>
           <li>Briefings: 2 days before and on the morning (unless marked optional)</li>
           <li>Vault documents: 30, 7 and 1 day before they expire</li>
           <li>Only for tenders that are Reviewing or Preparing. Emails go out at about 08:00 (South African time).</li>
         </ul>
-        <div>
-          <button className="btn" onClick={sendTest} disabled={testing || !on}>{testing ? 'Sending…' : 'Send test email'}</button>
-        </div>
-        {result && <div className={`callout ${result.ok ? 'ok' : 'crit'}`}>{result.text}</div>}
       </div>
     </section>
+  );
+}
+
+function RecipientForm({ initial, onSave, onCancel }: {
+  initial: Recipient | null;
+  onSave: (v: { email: string; name: string }) => Promise<string | null>;
+  onCancel: () => void;
+}) {
+  const [email, setEmail] = useState(initial?.email ?? '');
+  const [name, setName] = useState(initial?.name ?? '');
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const submit = async (ev: FormEvent) => {
+    ev.preventDefault();
+    setBusy(true);
+    const err = await onSave({ email, name });
+    setBusy(false);
+    setError(err);
+  };
+  return (
+    <form className="recipient-form" onSubmit={submit}>
+      <div className="form-grid">
+        <label className="field">
+          <span>Name <span className="muted">(optional)</span></span>
+          <input className="input" value={name} onChange={(e) => setName(e.target.value)} maxLength={80} placeholder="Thandi, or Tenders inbox" autoFocus={!!initial} />
+        </label>
+        <label className="field">
+          <span>Email address</span>
+          <input className="input" type="email" value={email} onChange={(e) => setEmail(e.target.value)} maxLength={254} placeholder="tenders@yourcompany.co.za" required autoFocus={!initial} />
+        </label>
+      </div>
+      {error && <div className="callout crit small">{error}</div>}
+      <div className="toolbar">
+        <button className="btn primary" type="submit" disabled={busy}>{busy ? 'Saving…' : initial ? 'Save changes' : 'Add'}</button>
+        <button className="btn" type="button" onClick={onCancel} disabled={busy}>Cancel</button>
+      </div>
+    </form>
   );
 }

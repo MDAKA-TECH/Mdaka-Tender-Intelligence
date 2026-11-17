@@ -160,7 +160,7 @@ export function buildEmail(group: Group, appUrl: string, now = new Date(), opts:
       ? `Reminders for ${group.company_name} will arrive like this. These are the next ones scheduled:`
       : `Reminders for ${group.company_name} will arrive at this address. Nothing is scheduled yet: reminders are set when a tender that is Reviewing or Preparing has a closing date or briefing, and when a vault document has an expiry date.`
     : `Reminders for ${group.company_name}:`;
-  const footer = `You get these emails because reminders are on for your account in Tender Intelligence. Turn them off under Company profile. Always check the tender document itself for the exact requirements and deadlines.`;
+  const footer = `You get these emails because this address is on the reminder list for your company in Tender Intelligence. Change the list under Company profile. Always check the tender document itself for the exact requirements and deadlines.`;
 
   const text = [
     intro,

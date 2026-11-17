@@ -8,7 +8,7 @@ import type { VaultDoc } from '../lib/vault';
 import { closingIn, fmtDateTime, fmtSize, fromLocalInput, toLocalInput } from '../lib/dates';
 import { TENDER_BUCKET, TENDER_FILE_ACCEPT, checkTenderFile, fileKind, uploadTenderFiles } from '../lib/tenderFiles';
 import SourceViewer from '../components/SourceViewer';
-import { Modal, useToast } from '../components/ui';
+import { Modal, SkeletonRows, usePageTitle, useToast } from '../components/ui';
 
 const FILE_COLS = 'id, tender_id, file_path, file_name, file_size, status, error, page_count, ocr_used, ocr_pages, extracted_at, created_at, preview_path, files_removed_at';
 const POLL_MS = 4000;
@@ -36,6 +36,7 @@ export default function TenderDetail({ id, company, user, onBack, onOpenVault }:
   const [exporting, setExporting] = useState(false);
   const [rev, setRev] = useState(0); // bump to reload reminders + activity
   const [aiLoadError, setAiLoadError] = useState<string | null>(null);
+  usePageTitle(tender ? tender.reference_no || tender.description || 'Untitled tender' : 'Tender');
 
   const loadFiles = useCallback(async () => {
     const { data, error: e } = await supabase.from('tender_files').select(FILE_COLS).eq('tender_id', id).order('created_at');
@@ -178,7 +179,14 @@ export default function TenderDetail({ id, company, user, onBack, onOpenVault }:
         <div className="callout crit">{error}</div>
       </div>
     );
-  if (!tender || !files) return <div className="page"><p className="muted">Loading…</p></div>;
+  if (!tender || !files)
+    return (
+      <div className="page">
+        <button className="btn ghost back" onClick={onBack}><ArrowLeft className="ico" aria-hidden="true" />Tenders</button>
+        <span className="sk title" />
+        <section className="panel"><SkeletonRows rows={5} label="Loading the tender" /></section>
+      </div>
+    );
 
   const c = tender.closing_at ? closingIn(tender.closing_at) : null;
   // Once a tender is no longer active its files can go, to save storage. Text, checklist and AI results stay.
@@ -554,6 +562,13 @@ const REMINDER_LABEL: Record<string, string> = { closing: 'Closing date', briefi
 
 function RemindersCard({ tender, user, rev }: { tender: Tender; user: AppUser; rev: number }) {
   const [rows, setRows] = useState<Reminder[] | null>(null);
+  const [recipients, setRecipients] = useState<number | null>(null);
+  useEffect(() => {
+    supabase
+      .from('reminder_recipients')
+      .select('id', { count: 'exact', head: true })
+      .then(({ count, error }) => setRecipients(error ? null : count ?? 0));
+  }, [rev]);
   useEffect(() => {
     supabase
       .from('reminders')
@@ -576,8 +591,8 @@ function RemindersCard({ tender, user, rev }: { tender: Tender; user: AppUser; r
           <p className="muted">Loading…</p>
         ) : !active ? (
           <p className="muted">None: this tender is {TENDER_STATUS_LABEL[tender.status]}.</p>
-        ) : !user.email_reminders ? (
-          <p className="muted">Reminders are off for your account. Turn them on under Company profile.</p>
+        ) : recipients === 0 ? (
+          <p className="muted">Reminders are off: no email addresses on the list. Add one under Company profile.</p>
         ) : upcoming.length === 0 ? (
           <p className="muted">{tender.closing_at ? 'Nothing left to send before closing.' : 'Add the closing date to get reminders.'}</p>
         ) : (

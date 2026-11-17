@@ -3,7 +3,10 @@ import { friendlyError, supabase } from '../lib/supabase';
 
 type Mode = 'signin' | 'signup';
 
+import { usePageTitle } from '../components/ui';
+
 export default function Login() {
+  usePageTitle(null);
   const [mode, setMode] = useState<Mode>('signin');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -46,6 +49,7 @@ export default function Login() {
       <div className="login-card panel">
         <div className="panel-body" style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
           <div>
+            <img className="login-mark" src="/favicon.svg" alt="" width="44" height="44" />
             <div className="login-brand">
               Tender <span>Intelligence</span>
             </div>

@@ -1,4 +1,5 @@
 import { ArrowLeft } from 'lucide-react';
+import { usePageTitle } from '../components/ui';
 
 // Privacy notice and terms of use. Readable without signing in, at #/privacy and #/terms.
 // DRAFT: written from how the app works today. Have a legal adviser review both before charging customers.
@@ -7,6 +8,7 @@ const UPDATED = '15 November 2026';
 const COMPANY = 'Mdaka Advanced Technologies (Pty) Ltd';
 
 export default function Legal({ page }: { page: 'privacy' | 'terms' }) {
+  usePageTitle(page === 'privacy' ? 'Privacy notice' : 'Terms of use');
   const back = () => {
     if (window.history.length > 1) window.history.back();
     else window.location.hash = '#/';

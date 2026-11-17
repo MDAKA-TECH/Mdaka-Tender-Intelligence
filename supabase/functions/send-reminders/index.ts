@@ -4,8 +4,8 @@
 //  * Hourly cron (pg_cron + pg_net, see supabase/cron_send_reminders.sql) with header
 //    `x-cron-secret: <CRON_SECRET>`: claims due reminders, sends one email per company with
 //    Resend, records the outcome.
-//  * "Send test email" in the app (signed-in user's JWT): emails that user a preview of the
-//    reminders scheduled for their company.
+//  * "Send test email" in the app (signed-in user's JWT): emails a preview of the reminders
+//    scheduled for their company to each of its reminder addresses (up to 3).
 //
 // Secrets (supabase secrets set ...): RESEND_API_KEY, REMINDER_FROM, APP_URL, CRON_SECRET.
 // SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY are provided by Supabase automatically.
@@ -65,15 +65,22 @@ async function sendTest(req: Request, sb: SupabaseClient, send: Sender, appUrl: 
   if (!me) return json({ error: 'Finish setting up your company first.' }, 400);
   if (!me.email) return json({ error: 'Your account has no email address.' }, 400);
 
+  // Goes to every reminder address on the company's list (up to 3), so a typo shows up straight away.
+  const { data: list, error: listErr } = await sb.from('reminder_recipients').select('email, name').eq('company_id', me.company_id).order('created_at');
+  if (listErr) throw new Error(listErr.message);
+  const recipients = (list ?? []).map((r: { email: string; name: string | null }) => ({ email: r.email, name: r.name ?? '' }));
+  if (!recipients.length) return json({ error: 'Add at least one reminder email address first.' }, 400);
+
   const items = await upcomingFor(sb, me.company_id);
-  const group: Group = { company_id: me.company_id, company_name: (me as any).companies?.name ?? 'your company', recipients: [{ email: me.email, name: me.name }], items };
+  const group: Group = { company_id: me.company_id, company_name: (me as any).companies?.name ?? 'your company', recipients, items };
   const email = buildEmail(group, appUrl, new Date(), { test: true })!;
+  const to = recipients.map((r) => r.email);
   try {
-    await send([me.email], email, `test-${auth.user.id}-${Date.now()}`);
+    await send(to, email, `test-${auth.user.id}-${Date.now()}`);
   } catch (e) {
     return json({ error: e instanceof Error ? e.message : String(e) }, 502);
   }
-  return json({ sent_to: me.email, scheduled: items.length });
+  return json({ sent_to: to.join(', '), recipients: to, scheduled: items.length });
 }
 
 Deno.serve(async (req) => {

@@ -75,7 +75,7 @@ Same setup as Student360.
 
 1. Create a new Supabase project (separate from Student360).
 2. Supabase → SQL Editor → run each file in `supabase/migrations/` in order
-   (`0001_foundations.sql`, `0002_ingestion.sql`, `0003_ai_extraction.sql`, `0004_reminders.sql`, `0005_ai_errors.sql`, `0006_storage_cleanup.sql`, then `0007_word_questions_storage.sql`).
+   (`0001_foundations.sql`, `0002_ingestion.sql`, `0003_ai_extraction.sql`, `0004_reminders.sql`, `0005_ai_errors.sql`, `0006_storage_cleanup.sql`, `0007_word_questions_storage.sql`, then `0008_reminder_recipients.sql`).
 3. Supabase → Authentication → URL Configuration: set Site URL to `http://localhost:5173`
    (add your Vercel URL later). Email confirmation is on by default; keep it on.
 4. Copy `.env.example` to `.env.local` and fill in the project URL and anon key
@@ -92,6 +92,7 @@ Same setup as Student360.
 - [x] Get-started guide, a sample tender to try instantly, better empty states
 - [x] Privacy notice and terms of use at `#/privacy` and `#/terms` (drafts: have them reviewed)
 - [x] Quieter worker log (HTTP request lines hidden)
+- [x] Reminder emails go to up to 3 addresses per company (Company profile), each editable
 
 ## Extraction worker
 

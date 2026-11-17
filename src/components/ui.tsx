@@ -39,3 +39,33 @@ export function ExpiryPill({ expires_on }: { expires_on: string | null }) {
 export function MissingPill({ core }: { core: boolean }) {
   return core ? <span className="stab" data-tone="crit">Missing</span> : <span className="stab soft" data-tone="slate">Not uploaded</span>;
 }
+
+// Placeholder rows while a list loads: the layout settles before the data arrives.
+export function SkeletonRows({ rows = 4, label = 'Loading' }: { rows?: number; label?: string }) {
+  return (
+    <div className="skeleton-rows" role="status" aria-label={label}>
+      {Array.from({ length: rows }, (_, i) => (
+        <div key={i} className="sk-row">
+          <span className="sk" style={{ width: `${46 - (i % 3) * 8}%` }} />
+          <span className="sk short" />
+        </div>
+      ))}
+    </div>
+  );
+}
+
+// Full-screen loading mark, the same as the one in index.html, so start-up is one continuous screen.
+export function BootMark({ label = 'Loading' }: { label?: string }) {
+  return (
+    <div className="boot" role="status" aria-label={label}>
+      <img src="/favicon.svg" alt="" />
+    </div>
+  );
+}
+
+// Browser tab title: "<page> · Tender Intelligence".
+export function usePageTitle(title: string | null | undefined) {
+  useEffect(() => {
+    document.title = title ? `${title} · Tender Intelligence` : 'Tender Intelligence · Mdaka Tech';
+  }, [title]);
+}

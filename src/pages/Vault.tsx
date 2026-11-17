@@ -3,7 +3,7 @@ import { ChevronRight } from 'lucide-react';
 import { friendlyError, supabase } from '../lib/supabase';
 import { DOC_TYPES, docTypeInfo, type Company, type CompanyDocument, type DocType } from '../lib/types';
 import { expiryState, fmtDate, fmtSize } from '../lib/dates';
-import { ExpiryPill, MissingPill, Modal, useToast } from '../components/ui';
+import { ExpiryPill, MissingPill, Modal, useToast, SkeletonRows } from '../components/ui';
 
 const BUCKET = 'vault';
 const MAX_BYTES = 10 * 1024 * 1024;
@@ -117,7 +117,7 @@ export default function Vault({ company }: { company: Company }) {
           </div>
         )}
         {!docs ? (
-          <p className="panel-body muted">Loading…</p>
+          <SkeletonRows rows={6} label="Loading the vault" />
         ) : shownSlots.length === 0 ? (
           <p className="panel-body muted">Nothing here.</p>
         ) : (

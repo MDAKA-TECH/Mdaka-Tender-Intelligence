@@ -3,7 +3,7 @@ import { Building2, FolderLock, Layers, LogOut, type LucideIcon } from 'lucide-r
 import { useAuth } from './lib/auth';
 import { supabaseConfigured } from './lib/supabase';
 import type { AppUser, Company } from './lib/types';
-import { ToastCtx } from './components/ui';
+import { BootMark, ToastCtx } from './components/ui';
 import Login from './pages/Login';
 import Onboarding from './pages/Onboarding';
 import Vault from './pages/Vault';
@@ -61,7 +61,7 @@ export default function App() {
         </div>
       </Centered>
     );
-  if (!ready) return <Centered><p className="muted">Loading…</p></Centered>;
+  if (!ready) return <BootMark />;
   if (!session) return <Login />;
   if (loadError)
     return (
@@ -74,7 +74,7 @@ export default function App() {
       </Centered>
     );
   if (!user) return <Onboarding />;
-  if (!company) return <Centered><p className="muted">Loading your workspace…</p></Centered>;
+  if (!company) return <BootMark label="Loading your workspace" />;
   return <Shell user={user} company={company} key={user.id} />;
 }
 
@@ -102,6 +102,11 @@ function Shell({ user, company }: { user: AppUser; company: Company }) {
     else setRoute(r);
   };
   const active: Page = route.page === 'tender' ? 'tenders' : route.page;
+  // The tender page sets its own title (its reference number).
+  const navTitle = NAV.find((n) => n.page === route.page)?.label;
+  useEffect(() => {
+    if (navTitle) document.title = `${navTitle} · Tender Intelligence`;
+  }, [navTitle]);
   const [toastMsg, setToastMsg] = useState<string | null>(null);
 
   const toast = useMemo(
@@ -118,10 +123,13 @@ function Shell({ user, company }: { user: AppUser; company: Company }) {
       <div className="app">
         <aside className="rail">
           <div className="brand">
-            <b>
-              Tender <span className="ti">Intelligence</span>
-            </b>
-            <small>by Mdaka Advanced Technologies</small>
+            <img className="brand-mark" src="/favicon.svg" alt="" width="34" height="34" />
+            <div className="brand-text">
+              <b>
+                Tender <span className="ti">Intelligence</span>
+              </b>
+              <small>by Mdaka Tech</small>
+            </div>
           </div>
           <nav className="nav" aria-label="Main">
             {NAV.map((n) => (
