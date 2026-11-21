@@ -49,3 +49,11 @@ export async function uploadTenderFiles(companyId: string, tenderId: string, fil
   }
   return { failed };
 }
+
+// A real, public RFQ from the Parliament of RSA, so anyone can see the whole flow in a minute.
+export const SAMPLE_TENDER = { url: '/sample/RFQ_906_2026.pdf', name: 'Sample - RFQ 906-2026 (Parliament, data analyst services).pdf' };
+export async function sampleTenderFile(): Promise<File> {
+  const res = await fetch(SAMPLE_TENDER.url);
+  if (!res.ok) throw new Error("Couldn't load the sample document.");
+  return new File([await res.blob()], SAMPLE_TENDER.name, { type: 'application/pdf' });
+}

@@ -9,6 +9,8 @@ import { closingIn, fmtDateTime, fmtSize, fromLocalInput, toLocalInput } from '.
 import { TENDER_BUCKET, TENDER_FILE_ACCEPT, checkTenderFile, fileKind, uploadTenderFiles } from '../lib/tenderFiles';
 import SourceViewer from '../components/SourceViewer';
 import { Modal, SkeletonRows, usePageTitle, useToast } from '../components/ui';
+import { useSignUp } from '../components/guest';
+import { useAuth } from '../lib/auth';
 
 const FILE_COLS = 'id, tender_id, file_path, file_name, file_size, status, error, page_count, ocr_used, ocr_pages, extracted_at, created_at, preview_path, files_removed_at';
 const POLL_MS = 4000;
@@ -561,6 +563,8 @@ function DeadlineBand({ tender, ai, reqs, closing }: { tender: Tender; ai: Tende
 const REMINDER_LABEL: Record<string, string> = { closing: 'Closing date', briefing: 'Briefing', query_deadline: 'Question deadline', doc_expiry: 'Document expiry' };
 
 function RemindersCard({ tender, user, rev }: { tender: Tender; user: AppUser; rev: number }) {
+  const { isGuest } = useAuth();
+  const signUp = useSignUp();
   const [rows, setRows] = useState<Reminder[] | null>(null);
   const [recipients, setRecipients] = useState<number | null>(null);
   useEffect(() => {
@@ -587,7 +591,12 @@ function RemindersCard({ tender, user, rev }: { tender: Tender; user: AppUser; r
     <section className="panel" aria-labelledby="rem-head">
       <div className="panel-head"><h2 id="rem-head">Email reminders</h2></div>
       <div className="panel-body rem-body">
-        {!rows ? (
+        {isGuest ? (
+          <div className="guest-mini">
+            <p className="muted" style={{ margin: 0 }}>Sign up free to get emails before the closing date, the briefing and when your documents expire.</p>
+            <button className="btn primary" onClick={() => signUp('Get deadline reminders.')}>Sign up free</button>
+          </div>
+        ) : !rows ? (
           <p className="muted">Loading…</p>
         ) : !active ? (
           <p className="muted">None: this tender is {TENDER_STATUS_LABEL[tender.status]}.</p>

@@ -4,8 +4,10 @@ import { friendlyError, supabase } from '../lib/supabase';
 import { ACTIVE_STATUSES, STATUS_TONE, TENDER_STATUS_LABEL, docTypeInfo, type Tone, type Company, type Tender, type TenderStatus } from '../lib/types';
 import { EXPIRING_DAYS, closingIn, daysUntil, fmtDateTime, fmtSize, fromLocalInput } from '../lib/dates';
 import type { VaultDoc } from '../lib/vault';
-import { TENDER_FILE_ACCEPT, checkTenderFile, uploadTenderFiles } from '../lib/tenderFiles';
+import { TENDER_FILE_ACCEPT, checkTenderFile, sampleTenderFile, uploadTenderFiles } from '../lib/tenderFiles';
 import { Modal, SkeletonRows, useToast } from '../components/ui';
+import { useSignUp } from '../components/guest';
+import { useAuth } from '../lib/auth';
 
 interface Row extends Tender {
   tender_files: { status: string }[];
@@ -23,13 +25,8 @@ const TABS: { tab: Tab; label: string; tone: Tone; match: (s: TenderStatus) => b
 ];
 const TAB_KEY = 'ti.tenders.tab';
 const GUIDE_KEY = 'ti.guide.hidden';
-const SAMPLE = { url: '/sample/RFQ_906_2026.pdf', name: 'Sample - RFQ 906-2026 (Parliament, data analyst services).pdf' };
-
-// A real, public RFQ from the Parliament of RSA, so a new account can see the whole flow in a minute.
 async function createSampleTender(companyId: string): Promise<string> {
-  const res = await fetch(SAMPLE.url);
-  if (!res.ok) throw new Error("Couldn't load the sample document.");
-  const file = new File([await res.blob()], SAMPLE.name, { type: 'application/pdf' });
+  const file = await sampleTenderFile();
   const { data, error } = await supabase
     .from('tenders')
     .insert({ description: 'Sample tender: try the app with a real RFQ', status: 'reviewing' })
@@ -56,6 +53,10 @@ export default function Tenders({ company, onOpen, onOpenVault }: { company: Com
   const [q, setQ] = useState('');
   const [sampleBusy, setSampleBusy] = useState(false);
   const toast = useToast();
+  const { isGuest } = useAuth();
+  const signUp = useSignUp();
+  // Guests get one tender; the second one asks them to sign up (the database enforces it too).
+  const newTender = () => (isGuest && (rows?.length ?? 0) >= 1 ? signUp('Add more tenders.') : setCreating(true));
   const trySample = async () => {
     setSampleBusy(true);
     try {
@@ -105,12 +106,12 @@ export default function Tenders({ company, onOpen, onOpenVault }: { company: Com
           <h1>Tenders</h1>
           <p>Upload a tender pack (PDF or Word) to start. Each document is read page by page so its requirements can be pulled out.</p>
         </div>
-        <button className="btn primary" onClick={() => setCreating(true)}><Plus className="ico" aria-hidden="true" />New tender</button>
+        <button className="btn primary" onClick={newTender}><Plus className="ico" aria-hidden="true" />New tender</button>
       </div>
 
       {error && <div className="callout crit">{error}</div>}
 
-      {rows && <GettingStarted rows={rows} vault={vault} sampleBusy={sampleBusy} onSample={trySample} onNew={() => setCreating(true)} onOpenVault={onOpenVault} />}
+      {rows && !isGuest && <GettingStarted rows={rows} vault={vault} sampleBusy={sampleBusy} onSample={trySample} onNew={() => setCreating(true)} onOpenVault={onOpenVault} />}
 
       {rows && rows.length > 0 && <ComingUp rows={rows} vault={vault} onOpen={onOpen} onOpenVault={onOpenVault} />}
 
@@ -122,7 +123,7 @@ export default function Tenders({ company, onOpen, onOpenVault }: { company: Com
             <b>No tenders yet</b>
             <p className="muted">Add the RFQ or tender you're working on, with its annexures and SBD forms. Not sure yet? Try a sample: a real RFQ, read and checked in about a minute.</p>
             <div className="toolbar">
-              <button className="btn primary" onClick={() => setCreating(true)}><Plus className="ico" aria-hidden="true" />New tender</button>
+              <button className="btn primary" onClick={newTender}><Plus className="ico" aria-hidden="true" />New tender</button>
               <button className="btn" onClick={trySample} disabled={sampleBusy}><Sparkles className="ico" aria-hidden="true" />{sampleBusy ? 'Adding sample…' : 'Try a sample tender'}</button>
             </div>
           </div>

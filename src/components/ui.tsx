@@ -55,10 +55,13 @@ export function SkeletonRows({ rows = 4, label = 'Loading' }: { rows?: number; l
 }
 
 // Full-screen loading mark, the same as the one in index.html, so start-up is one continuous screen.
-export function BootMark({ label = 'Loading' }: { label?: string }) {
+export function BootMark({ label = 'Loading', text }: { label?: string; text?: string }) {
   return (
     <div className="boot" role="status" aria-label={label}>
-      <img src="/favicon.svg" alt="" />
+      <div className="boot-inner">
+        <img src="/favicon.svg" alt="" />
+        {text && <p className="boot-text">{text}</p>}
+      </div>
     </div>
   );
 }

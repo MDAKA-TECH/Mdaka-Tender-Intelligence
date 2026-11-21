@@ -76,6 +76,7 @@ function Privacy() {
       <h2>How long we keep it</h2>
       <ul>
         <li>Your documents and results stay until you delete them, or delete the tender or your account.</li>
+        <li>If you try the app without an account, that trial and its documents are deleted after 7 days unless you sign up.</li>
         <li>Once a tender is submitted or closed you can remove its stored files and keep only the text and checklist.</li>
         <li>Deleted files are removed from storage within about an hour. Backups held by our providers expire on their own schedule.</li>
       </ul>

@@ -11,6 +11,9 @@ import CompanyPage from './pages/Company';
 import Tenders from './pages/Tenders';
 import TenderDetail from './pages/TenderDetail';
 import Legal from './pages/Legal';
+import GuestStart from './pages/GuestStart';
+import FinishSignup from './pages/FinishSignup';
+import { GuestBanner, GuestGate, SignUpCtx, SignUpModal } from './components/guest';
 
 type Route = { page: 'tenders' } | { page: 'tender'; id: string } | { page: 'vault' } | { page: 'company' };
 type Page = Route['page'];
@@ -35,19 +38,20 @@ const toHash = (r: Route) => (r.page === 'tender' ? `#/tenders/${r.id}` : `#/${r
 
 // #/privacy and #/terms open without signing in.
 const legalPage = (h: string): 'privacy' | 'terms' | null => (h === '#/privacy' ? 'privacy' : h === '#/terms' ? 'terms' : null);
-function useLegalPage() {
-  const [p, setP] = useState(() => legalPage(window.location.hash));
+function useHash() {
+  const [h, setH] = useState(() => window.location.hash);
   useEffect(() => {
-    const on = () => setP(legalPage(window.location.hash));
+    const on = () => setH(window.location.hash);
     window.addEventListener('hashchange', on);
     return () => window.removeEventListener('hashchange', on);
   }, []);
-  return p;
+  return h;
 }
 
 export default function App() {
-  const { ready, session, user, company, loadError, signOut } = useAuth();
-  const legal = useLegalPage();
+  const { ready, session, user, company, loadError, signOut, isGuest, guestBusy } = useAuth();
+  const hash = useHash();
+  const legal = legalPage(hash);
   if (legal) return <Legal page={legal} />;
 
   if (!supabaseConfigured)
@@ -62,7 +66,9 @@ export default function App() {
       </Centered>
     );
   if (!ready) return <BootMark />;
-  if (!session) return <Login />;
+  if (guestBusy) return <BootMark label={guestBusy} text={guestBusy} />;
+  // No account yet: start on the try-it page; #/signin and #/signup open the login screen.
+  if (!session) return hash === '#/signin' || hash === '#/signup' ? <Login initialMode={hash === '#/signup' ? 'signup' : 'signin'} /> : <GuestStart />;
   if (loadError)
     return (
       <Centered>
@@ -73,9 +79,20 @@ export default function App() {
         <button className="btn" onClick={signOut}>Sign out</button>
       </Centered>
     );
-  if (!user) return <Onboarding />;
+  if (!user) return isGuest ? <GuestStart /> : <Onboarding />;
   if (!company) return <BootMark label="Loading your workspace" />;
+  // A guest who has just signed up (Google or a confirmed email) names their company first.
+  if (!isGuest && !user.email && session.user.email) return <FinishSignup />;
   return <Shell user={user} company={company} key={user.id} />;
+}
+
+function GuestPage({ title, gate, body }: { title: string; gate: string; body: string }) {
+  return (
+    <div className="page narrow">
+      <div className="page-head"><div><h1>{title}</h1></div></div>
+      <GuestGate title={gate} body={body} />
+    </div>
+  );
 }
 
 function Centered({ children }: { children: ReactNode }) {
@@ -87,7 +104,9 @@ function Centered({ children }: { children: ReactNode }) {
 }
 
 function Shell({ user, company }: { user: AppUser; company: Company }) {
-  const { signOut } = useAuth();
+  const { signOut, isGuest } = useAuth();
+  const [signUp, setSignUp] = useState<{ reason?: string } | null>(null);
+  const openSignUp = useMemo(() => (reason?: string) => setSignUp({ reason }), []);
   const [route, setRoute] = useState<Route>(() => parseHash(window.location.hash));
   useEffect(() => {
     const onHash = () => {
@@ -120,6 +139,7 @@ function Shell({ user, company }: { user: AppUser; company: Company }) {
 
   return (
     <ToastCtx.Provider value={toast}>
+    <SignUpCtx.Provider value={openSignUp}>
       <div className="app">
         <aside className="rail">
           <div className="brand">
@@ -141,24 +161,43 @@ function Shell({ user, company }: { user: AppUser; company: Company }) {
             ))}
           </nav>
           <div className="whoami">
-            <div className="me">
-              <b>{user.name}</b>
-              <span>{company.name}</span>
-            </div>
-            <button className="btn rail-btn" onClick={signOut}>
-              <LogOut className="ico" aria-hidden="true" />
-              Sign out
-            </button>
+            {isGuest ? (
+              <>
+                <div className="me">
+                  <b>Free trial</b>
+                  <span>No account yet</span>
+                </div>
+                <button className="btn primary rail-signup" onClick={() => openSignUp()}>Sign up free</button>
+              </>
+            ) : (
+              <>
+                <div className="me">
+                  <b>{user.name}</b>
+                  <span>{company.name}</span>
+                </div>
+                <button className="btn rail-btn" onClick={signOut}>
+                  <LogOut className="ico" aria-hidden="true" />
+                  Sign out
+                </button>
+              </>
+            )}
             <div className="rail-legal small"><a href="#/privacy">Privacy</a> · <a href="#/terms">Terms</a></div>
           </div>
         </aside>
         <main className="main">
+          {isGuest && <GuestBanner onSignUp={() => openSignUp()} />}
           {route.page === 'tenders' ? (
             <Tenders company={company} onOpen={(id) => go({ page: 'tender', id })} onOpenVault={() => go({ page: 'vault' })} />
           ) : route.page === 'tender' ? (
             <TenderDetail id={route.id} key={route.id} company={company} user={user} onBack={() => go({ page: 'tenders' })} onOpenVault={() => go({ page: 'vault' })} />
           ) : route.page === 'vault' ? (
-            <Vault company={company} />
+            isGuest ? (
+              <GuestPage title="Document vault" gate="Sign up to use the document vault" body="Keep your tax PIN, CSD report, B-BBEE certificate and other compliance documents in one place. Every checklist shows what you already have, and you get an email before anything expires." />
+            ) : (
+              <Vault company={company} />
+            )
+          ) : isGuest ? (
+            <GuestPage title="Company profile" gate="Sign up to set up your company" body="Add your company details and choose who gets the deadline reminder emails, up to three people." />
           ) : (
             <CompanyPage company={company} user={user} />
           )}
@@ -169,6 +208,8 @@ function Shell({ user, company }: { user: AppUser; company: Company }) {
           {toastMsg}
         </div>
       )}
+      {signUp && isGuest && <SignUpModal reason={signUp.reason} onClose={() => setSignUp(null)} />}
+    </SignUpCtx.Provider>
     </ToastCtx.Provider>
   );
 }

@@ -76,6 +76,23 @@ says "Google sign-in is not switched on yet".
 Someone who signed up with email and password can also use Google with the same email: Supabase links
 the two to one account. A first-time Google sign-in goes to "Set up your company", with their name filled in.
 
+## 3C. Try without an account (guests)
+
+Visitors land on a "Turn any tender into a checklist" page and can upload a tender (or the sample)
+straight away. They're asked to sign up only to keep it, add a second tender, use the vault or get
+reminders. Guests get 1 tender, up to 6 documents and 10 questions an hour; trials that never sign
+up are deleted after 7 days by a nightly job.
+
+1. Run `supabase/migrations/0009_guests.sql` in the SQL editor (it also schedules the nightly cleanup).
+2. Supabase → **Authentication → Sign In / Providers**:
+   - switch on **Allow anonymous sign-ins**
+   - switch on **Allow manual linking** (lets a guest sign up with Google and keep their tender)
+3. Optional, if bots start creating trials: Supabase → Authentication → **Attack Protection** → turn on
+   CAPTCHA (Cloudflare Turnstile is free). Supabase already limits guest sign-ins per IP address.
+
+Until step 2 is done, uploading from the landing page says "Trying without an account is not switched
+on yet" and points to Create an account.
+
 ## 4A. Worker on Oracle Cloud, free (about 45 minutes the first time)
 
 Files: `worker/deploy/oracle-cloud-init.yaml`, `worker/deploy/setup-worker.sh`, `worker/deploy/update-worker.sh`.

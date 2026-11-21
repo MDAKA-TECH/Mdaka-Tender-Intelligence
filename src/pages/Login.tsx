@@ -17,9 +17,9 @@ function oauthError(): string | null {
 // Read once when the app loads, before anything else changes the URL.
 const initialOauthError = oauthError();
 
-export default function Login() {
+export default function Login({ initialMode = 'signin' }: { initialMode?: Mode }) {
   usePageTitle(null);
-  const [mode, setMode] = useState<Mode>('signin');
+  const [mode, setMode] = useState<Mode>(initialMode);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(initialOauthError);
@@ -118,6 +118,9 @@ export default function Login() {
             <button className="login-toggle" onClick={() => { setMode(signup ? 'signin' : 'signup'); setError(null); }}>
               {signup ? 'Sign in' : 'Create an account'}
             </button>
+          </p>
+          <p className="small muted" style={{ margin: 0 }}>
+            Just looking? <a href="#/">Try it free without an account</a>
           </p>
           <p className="small muted" style={{ margin: 0 }}>
             {signup ? 'By creating an account you agree to the ' : ''}<a href="#/terms">{signup ? 'terms of use' : 'Terms of use'}</a>{signup ? ' and ' : ' · '}<a href="#/privacy">{signup ? 'privacy notice' : 'Privacy notice'}</a>{signup ? '.' : ''}
